@@ -1,0 +1,129 @@
+/* css 정리 */
+.header-logo .onda-logo img {
+  display: block;
+  max-width: 50%;
+}
+
+.estimate_td {
+  background-color: #21618c;
+  color: #fff !important;
+}
+
+#quotation_reply_grid {
+  position: relative;
+}
+
+.quotation_reply_btns,
+.quotation_conditions_btns,
+.order_btns {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  margin: 20px 0;
+}
+
+.quotation_reply_btns div button,
+.quotation_conditions_btns div button,
+.order_btns div button {
+  background-color: #5499c7;
+  color: #fff;
+  font-size: 13.5px;
+  border-radius: 0;
+}
+.quotation_reply_btns div button:hover,
+.quotation_conditions_btns div button:hover,
+.order_btns div button:hover {
+  background-color: #2e4053;
+}
+
+.quotation_reply_btns .quotation_reply_btns_left {
+  width: fit-content;
+  flex: 9;
+}
+
+.quotation_reply_btns .quotation_reply_btns_left button:last-child {
+  margin-left: 10px;
+}
+
+.quotation_reply_btns .quotation_reply_btns_right {
+  width: fit-content;
+  flex: 1;
+}
+
+.quotation_reply_table {
+  width: 100%;
+}
+
+.quotation_reply_menu {
+  position: relative;
+  width: 100%;
+}
+
+.quotation_reply_menu h4 {
+  text-align: center;
+  font-weight: bold;
+  font-size: 25px;
+  margin: 50px 0 10px;
+}
+
+.quotation_reply_menu div {
+  display: inline-block;
+}
+
+.quotation_reply_menu a {
+  font-size: 15px;
+  margin: 10px;
+}
+
+.search_area_menu {
+  position: relative;
+  width: 100%;
+  max-width: 1000px;
+  margin: 50px auto 20px;
+}
+
+.search_area_menu .search_business_box {
+  display: flex;
+}
+
+.search_area_menu .search_business_indicator_box {
+  border: 5px solid #272953;
+  margin: 0 1%;
+  width: 250px;
+  height: 75px;
+  position: relative;
+}
+
+.search_area_menu .search_business_indicator_box p:first-child {
+  display: block;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 12.5px;
+}
+
+.search_area_menu .search_business_indicator_box p:last-child {
+  display: block;
+  position: absolute;
+  font-weight: bold;
+  font-size: 16.5px;
+  bottom: 8px;
+  right: 8px;
+}
+
+.quotation_conditions_btns .quotation_conditions_btns_right,
+.order_btns .order_btns_right {
+  position: relative;
+}
+
+.quotation_conditions_table,
+.order_conditions_table {
+  position: relative;
+  width: 100%;
+}
+
+.menu_pagination {
+  position: absolute;
+  bottom: 0;
+}
