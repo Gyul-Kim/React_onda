@@ -1,18 +1,14 @@
 import BaseLayout from "../../components/base_layout";
 import EstimateNav from "../../components/navi/estimate_nav";
-import React, { useEffect, useState, useRef } from "react";
+import QuotationNav from "../../components/navi/quotation_nav";
+import SearchBox from "../../components/SearchBox";
+
+import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import style from "../../styles/Home.module.css";
-import $ from "jquery";
+import { Text, Radio, RadioGroup, Stack } from "@chakra-ui/react";
 
-const EstimateGrid = dynamic(
-  () => import("../../components/quotation/quotation_detail"),
-  {
-    ssr: false,
-  }
-);
-
-const EstimateConditionsGrid = dynamic(
+const QuotationConditionsTable = dynamic(
   () => import("../../components/quotation/quotation_conditions_table"),
   {
     ssr: false,
@@ -20,52 +16,49 @@ const EstimateConditionsGrid = dynamic(
 );
 
 // 전역변수
-const axios = require("axios").default;
-export default function EstimateDetail(props) {
-  const ref = useRef();
-  const ref_grid = useRef();
-
-  const quotationGridShow = (props) => {
-    $(".quotationGrid").show();
-    $(".quotationConditions").hide();
-    // ref_grid.current.getInstance().setRequestParams(props.params);
-    console.log(ref_grid);
-    console.log(props);
-  };
-
-  const quotationConditionsShow = (props) => {
-    $(".quotationGrid").hide();
-    $(".quotationConditions").show();
-    ref.current.getInstance().readData();ㅋ
-    console.log(ref);
-  };
-
+export default function EstimateDetail() {
   return (
     <BaseLayout>
       <EstimateNav />
-      <div className="flex-center" id="quotation_reply_grid">
+      <div id="quotation_conditions">
+        <QuotationNav />
+      </div>
+      <div id="quotation_reply_grid">
         <div className={style.quotation_reply_menu}>
-          <h4 className="">견적관리</h4>
-          <button className="" onClick={quotationGridShow}>
-            견적회신하기
-          </button>
-          <div>ㅣ</div>
-          <button href="#" className="" onClick={quotationConditionsShow}>
-            견적상황
-          </button>
+          <h4 className="">견적상황판</h4>
+        </div>
+        <div className={style.search_area_menu}>
+          <div className={style.search_business_box}>
+            <div className={style.search_business_indicator_box}>
+              <Text>견적 완료 금액</Text>
+              <Text>401,500</Text>
+            </div>
+            <div className={style.search_business_indicator_box}>
+              <Text>견적 미완료 금액</Text>
+              <Text>94,000</Text>
+            </div>
+          </div>
+          <div style={{ display: "flex" }}>
+            <SearchBox />
+            <div
+              className={style.search_radio_box}
+              style={{ padding: "27px 20px", height: "fit-content" }}
+            >
+              <RadioGroup>
+                <Stack direction="row">
+                  <Radio value="1">전체</Radio>
+                  <Radio value="2">견적완료</Radio>
+                  <Radio value="3">견적 미완료</Radio>
+                </Stack>
+              </RadioGroup>
+            </div>
+          </div>
         </div>
         <div className="quotationGrid">
-          <EstimateGrid
-            ref={ref_grid}
-            onBeforeRequest={(props) => {
-              props.instance.setRequestParams(props.params);
-            }}
-          />
-        </div>
-        <div className="quotationConditions" style={{ display: "none" }}>
-          <EstimateConditionsGrid ref={ref} />
+          <QuotationConditionsTable />
         </div>
       </div>
     </BaseLayout>
   );
 }
+
