@@ -127,3 +127,94 @@
   position: absolute;
   bottom: 0;
 }
+
+.main_container .main_tp {
+  width: 100%;
+  height: 15%;
+  position: relative;
+  display: flex;
+  margin: 15px 0;
+}
+.main_container .main_md {
+  width: 33%;
+  height: 100%;
+  position: relative;
+}
+
+.main_container .bx_indicator {
+  flex: 1;
+  height: 100%;
+  border: 7px solid #272953;
+  margin: 0 1.5%;
+  padding: 20px;
+  position: relative;
+}
+
+.bx_indicator h4 {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+
+  font-size: 15px;
+}
+
+.main_container .bx_indicator p {
+  position: absolute;
+}
+
+.main_container .bx_indicator p:first-of-type {
+  font-size: 2rem;
+  letter-spacing: 0.25rem;
+  top: 30px;
+  left: 10px;
+  font-weight: bold;
+}
+
+.main_container .bx_indicator p:nth-of-type(2) {
+  font-size: 13.5px;
+  left: 10px;
+  top: 80px;
+}
+
+.main_container .bx_indicator p:last-child {
+  font-size: 13.5px;
+  right: 10px;
+  top: 80px;
+}
+
+.main_container .main_md {
+  width: 100%;
+  height: 60%;
+  position: relative;
+  display: flex;
+}
+
+.main_container .main_lft {
+  position: relative;
+  flex: 3;
+}
+
+.main_container .main_lft h3,
+.main_container .main_rt h3 {
+  display: block;
+  font-size: 20px;
+  font-weight: bold;
+  width: fit-content;
+  height: fit-content;
+  margin: 20px 10px;
+}
+
+.main_container .main_rt {
+  position: relative;
+  flex: 2;
+}
+
+.main_container .main_lft > div,
+.main_container .main_rt > div {
+  position: relative;
+  width: 90%;
+  height: 100%;
+  margin: 20px;
+  border: 5px solid #272953;
+}
+
