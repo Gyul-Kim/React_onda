@@ -4,7 +4,7 @@ function FilledLineChart() {
   useEffect(() => {
     var ctx = document.getElementById("FilledLineChart").getContext("2d");
     var myChart = new Chart(ctx, {
-      type: "bar",
+      type: "line",
       data: {
         labels: [
           "Sunday",
@@ -17,38 +17,34 @@ function FilledLineChart() {
         ],
         datasets: [
           {
-            data: [66, 144, 146, 116, 107, 131, 43],
+            data: [86, 114, 106, 106, 107, 111, 133],
             label: "Applied",
-            borderColor: "rgb(109, 253, 181)",
-            backgroundColor: "rgb(109, 253, 181,0.5)",
-            borderWidth: 2,
+            borderColor: "#3e95cd",
+            backgroundColor: "#7bb6dd",
+            fill: false,
           },
           {
-            data: [40, 100, 44, 70, 63, 30, 10],
+            data: [70, 90, 44, 60, 83, 90, 100],
             label: "Accepted",
-            borderColor: "rgb(75, 192, 192)",
-            backgroundColor: "rgb(75, 192, 192,0.5)",
-            borderWidth: 2,
+            borderColor: "#3cba9f",
+            backgroundColor: "#71d1bd",
+            fill: false,
           },
           {
-            data: [20, 24, 50, 34, 33, 23, 12],
+            data: [10, 21, 60, 44, 17, 21, 17],
             label: "Pending",
-            borderColor: "rgb(255, 205, 86)",
-            backgroundColor: "rgb(255, 205, 86,0.5)",
-            borderWidth: 2,
+            borderColor: "#ffa500",
+            backgroundColor: "#ffc04d",
+            fill: false,
           },
           {
-            data: [6, 20, 52, 12, 11, 78, 21],
+            data: [6, 3, 2, 2, 7, 0, 16],
             label: "Rejected",
-            borderColor: "rgb(255, 99, 132)",
-            backgroundColor: "rgb(255, 99, 132,0.5)",
-            borderWidth: 2,
+            borderColor: "#c45850",
+            backgroundColor: "#d78f89",
+            fill: false,
           },
         ],
-      },
-      options: {
-        responsive: false,
-        maintainAspectRatio: false,
       },
     });
   }, []);
@@ -65,7 +61,7 @@ function FilledLineChart() {
               style={{
                 position: "absolute",
                 width: "100% !important",
-                height: "95% !important",
+                height: "100% !important",
               }}
             ></canvas>
           </div>
