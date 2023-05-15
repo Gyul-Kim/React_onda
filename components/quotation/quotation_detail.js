@@ -1,34 +1,16 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
-import {
-  Text,
-  Button,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-  ModalFooter,
-  Modal,
-  useDisclosure,
-  Center,
-  Box,
-  Input,
-} from "@chakra-ui/react";
+import { Button } from "@chakra-ui/react";
 import Grid from "@toast-ui/react-grid";
 import TuiGrid from "tui-grid";
-import { loadProgressBar } from "axios-progress-bar";
-import { decodeToken, isLoginCheck } from "../../provider/auth";
 import style from "../../styles/Home.module.css";
 import { GetCookie } from "../../provider/common";
+import { loadProgressBar } from "axios-progress-bar";
 
 import Pagination from "react-js-pagination";
 
 import "tui-grid/dist/tui-grid.min.css";
 import "axios-progress-bar/dist/nprogress.css";
-import { removeData } from "jquery";
-import { reset } from "numeral";
-import { areIntervalsOverlapping } from "date-fns";
+
 // 전역변수
 const axios = require("axios").default;
 // Toast-ui에서 사용하는 Grid css
@@ -354,6 +336,7 @@ export default function EstimateGrid(props) {
   // ];
 
   const handlePageChange = (page) => setPage(page);
+  const handleAlert = () => alert("준비 중입니다.");
 
   useEffect(() => {
     loadData();
@@ -362,13 +345,21 @@ export default function EstimateGrid(props) {
   if (data) {
     return (
       <>
-        <div className="mb-5 estimate-detail__body">
+        <div className="mb-5 estimate-detail__body quotation_reply_detail">
           <div className={style.quotation_reply_btns}>
             <div className={style.quotation_reply_btns_left}>
-              <Button type="button" className={style.estimate_list_detail_btn}>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={handleAlert}
+              >
                 Excel 견적서 다운로드
               </Button>
-              <Button type="button" className={style.estimate_list_detail_btn}>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={handleAlert}
+              >
                 Excel 견적서 업로드
               </Button>
             </div>
@@ -384,11 +375,6 @@ export default function EstimateGrid(props) {
               data={data}
               columns={columns}
               columnOptions={{ resizable: true }}
-              // treeColumnOptions={{
-              //   name: "partnumber",
-              //   useIcon: false,
-              //   useCascadingCheckbox: true,
-              // }}
               rowHeaders={[{ type: "checkbox", checked: false }]}
             />
           </div>
@@ -411,3 +397,4 @@ export default function EstimateGrid(props) {
     return <></>;
   }
 }
+
