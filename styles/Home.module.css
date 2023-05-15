@@ -1,4 +1,4 @@
-/* css 정리 */
+/* 온다파츠 css */
 .header-logo .onda-logo img {
   display: block;
   max-width: 50%;
@@ -30,6 +30,7 @@
   color: #fff;
   font-size: 13.5px;
   border-radius: 0;
+  flex: 1;
 }
 .quotation_reply_btns div button:hover,
 .quotation_conditions_btns div button:hover,
@@ -79,7 +80,7 @@
 .search_area_menu {
   position: relative;
   width: 100%;
-  max-width: 1000px;
+  max-width: 90%;
   margin: 50px auto 20px;
 }
 
@@ -93,6 +94,10 @@
   width: 250px;
   height: 75px;
   position: relative;
+}
+
+.search_area_menu .search_business_indicator_box:first-child {
+  margin: 0 1% 0 0;
 }
 
 .search_area_menu .search_business_indicator_box p:first-child {
@@ -115,6 +120,13 @@
 .quotation_conditions_btns .quotation_conditions_btns_right,
 .order_btns .order_btns_right {
   position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.quotation_conditions_btns .quotation_conditions_btns_right > div,
+.order_btns .order_btns_right > div {
+  flex: 9;
 }
 
 .quotation_conditions_table,
@@ -126,6 +138,14 @@
 .menu_pagination {
   position: absolute;
   bottom: 0;
+}
+
+/* 메인_대시보드 main_dashboard */
+.main_container {
+  position: relative;
+  width: 97.5%;
+  height: 800px;
+  margin: 20px auto;
 }
 
 .main_container .main_tp {
@@ -201,7 +221,7 @@
   font-weight: bold;
   width: fit-content;
   height: fit-content;
-  margin: 20px 10px;
+  margin: 1.5% 20px 10px;
 }
 
 .main_container .main_rt {
@@ -218,3 +238,56 @@
   border: 5px solid #272953;
 }
 
+.main_container .main_btm {
+  width: 100%;
+  height: 60%;
+  position: relative;
+}
+.main_container .main_btm h3 {
+  display: block;
+  font-size: 20px;
+  font-weight: bold;
+  width: fit-content;
+  height: fit-content;
+  margin: 20px 10px;
+  flex: 9;
+}
+.main_container .main_btm .btm_title {
+  display: flex;
+}
+
+.main_container .main_btm button {
+  font-size: 13.5px;
+  font-weight: bold;
+}
+.main_container .main_btm .tableWrap {
+  width: 98%;
+  border: 5px solid #272953;
+}
+
+.main_container .main_btm table {
+  width: 98%;
+  margin: 15px auto;
+}
+
+.main_container .main_btm table thead {
+  font-size: 13.5px;
+  background-color: #272953;
+  width: 100%;
+  height: 45px;
+  color: #fff;
+}
+.main_container .main_btm table tbody {
+  text-align: center;
+  font-size: 13.5px;
+}
+.main_container .main_btm table tbody tr {
+  border-top: 1px solid #ccc;
+}
+.main_container .main_btm table tbody tr:last-child {
+  border-bottom: 1px solid #ccc;
+}
+
+.main_container .main_btm table tbody tr td {
+  padding: 15px 0;
+}
