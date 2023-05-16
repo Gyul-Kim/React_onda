@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { Chart } from "chart.js";
+import style from "../../styles/Home.module.css";
+
 function FilledLineChart() {
   useEffect(() => {
     var ctx = document.getElementById("FilledLineChart").getContext("2d");
@@ -46,6 +48,25 @@ function FilledLineChart() {
           },
         ],
       },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          xAxes: [
+            {
+              display: true,
+            },
+          ],
+          yAxes: [
+            {
+              display: true,
+              ticks: {
+                beginAtZero: true,
+              },
+            },
+          ],
+        },
+      },
     });
   }, []);
 
@@ -53,23 +74,11 @@ function FilledLineChart() {
     <>
       {/* Bar chart */}
 
-      <div className="w-[1100px] h-screen flex mx-auto my-auto">
-        <div className="border border-gray-400 pt-0 rounded-xl  w-full h-fit my-auto  shadow-xl">
-          <div>
-            <canvas
-              id="FilledLineChart"
-              style={{
-                position: "absolute",
-                width: "100% !important",
-                height: "100% !important",
-              }}
-            ></canvas>
-          </div>
-        </div>
+      <div className={style.earning_chart}>
+        <canvas id="FilledLineChart"></canvas>
       </div>
     </>
   );
 }
 
 export default FilledLineChart;
-
