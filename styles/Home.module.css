@@ -224,18 +224,35 @@
   margin: 1.5% 20px 10px;
 }
 
+.main_container .main_lft h3 {
+  flex: 15;
+}
+
 .main_container .main_rt {
   position: relative;
   flex: 2;
 }
 
-.main_container .main_lft > div,
-.main_container .main_rt > div {
+.main_container .main_lft > .chart_frame,
+.main_container .main_rt > .chart_frame {
   position: relative;
   width: 90%;
-  height: 100%;
+  height: 80%;
   margin: 20px;
   border: 5px solid #272953;
+}
+
+.main_container .main_lft > div button,
+.main_container .main_rt > div button {
+  flex: 1;
+  background-color: #272953;
+  color: #fff;
+  padding: 8px 13px;
+  margin-top: 15px;
+}
+
+.main_container .main_lft > div button:first-of-type {
+  margin-right: 10px;
 }
 
 .main_container .main_btm {
@@ -290,4 +307,10 @@
 
 .main_container .main_btm table tbody tr td {
   padding: 15px 0;
+}
+
+.earning_chart {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
