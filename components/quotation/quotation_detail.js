@@ -1,9 +1,11 @@
+import React, { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { Button } from "@chakra-ui/react";
 import Grid from "@toast-ui/react-grid";
 import TuiGrid from "tui-grid";
 import style from "../../styles/Home.module.css";
 import { GetCookie } from "../../provider/common";
+import { decodeToken } from "../../provider/auth";
 import { loadProgressBar } from "axios-progress-bar";
 
 import Pagination from "react-js-pagination";
@@ -185,38 +187,102 @@ export default function EstimateGrid(props) {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
   const [total, setTotal] = useState(1);
-
-  const es_id = props.es_id;
   const [data, setData] = useState();
 
   // 데이터 로드
   const loadData = async () => {
     try {
+      // 토큰 설정 -> 해당 유저 it_maker 값 필요
+      const token = await GetCookie("token");
+      const tokenInfo = await decodeToken(token);
+      const quotationInfoId = tokenInfo.payload.it_maker;
+
+      // 온다파츠 견적 회신 리스트(총 데이터)
       let URL =
         process.env.ONDA_API_URL +
-        "/api/quotation/count" +
-        `?offset=${perPage}&page=${page}`;
+        "/api/quotation/id/detail/count/" +
+        `${quotationInfoId}?offset=${perPage}&page=${page}`;
 
       const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+
+      // 온다파츠 견적 회신 리스트(총 개수)
+      let countURL =
+        process.env.ONDA_API_URL +
+        "/api/quotation/id/detail/onlycount/" +
+        `${quotationInfoId}`;
+
+      const count = await axios.get(countURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+
+      setPerPage(perPage);
+      setTotal(count.data.data);
+      setData(res.data.data);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  // 온다 마스터로 견적 회신하기
+  const replyQuotationMaster = async () => {
+    try {
+      const checkedRows = ref.current.getInstance().getCheckedRows();
+      // validation (checkedRows 0개 막기)
+      if (checkedRows.length == 0) {
+        alert("회신하실 견적을 선택해주세요");
+        return;
+      }
+
+      let body = { quotationsLists: [] };
+      for (const row of checkedRows) {
+        body.quotationsLists.push({
+          rply_id: row.rply_id,
+          quantity: row.quantity,
+          price: row.price,
+          manufacturer: row.manufacturer,
+          partnumber: row.partnumber,
+          dc: row.dc,
+          packaging: row.packaging,
+          leadtime: row.leadtime,
+          es_state: "complete",
+        });
+      }
+
+      let replyURL = process.env.ONDA_API_URL + "/api/quotation/partner";
+
+      const res = await axios.post(replyURL, body, {
         headers: {
           "content-type": "application/json",
           Authorization: `Bearer ${await GetCookie("token")}`,
         },
       });
 
-      setPerPage(perPage);
-      setTotal(9);
-      setData(res.data.data);
-
-      console.log(page);
-    } catch (e) {}
+      if (res.data.status === 200) {
+        alert("견적 회신이 완료되었습니다.");
+        setTimeout(function () {
+          location.reload();
+        }, 1250);
+      } else {
+        alert("견적 회신에 실패하였습니다.");
+      }
+    } catch (e) {
+      console.log(e);
+    }
   };
 
   // 컬럼 설정
   const columns = [
     {
       header: "순번",
-      name: "data_num",
+      name: "",
       width: 30,
       className: "font12 text-center",
       renderer: {
@@ -226,114 +292,88 @@ export default function EstimateGrid(props) {
     },
     {
       header: "견적번호",
-      name: "partnumber",
-      className: "font12",
-      // renderer: {
-      //   type: EsitmateCustomPartnumberRenderer,
-      // },
-      minWidth: 130,
+      name: "rply_id",
+      className: "font12 text-center",
+
+      width: 80,
       hidden: false,
       filter: "select",
     },
 
     {
       header: "부품번호",
-      name: "manufacturer",
-      className: "font12",
+      name: "partnumber",
+      className: "font12 text-center",
       hidden: false,
-      minWidth: 130,
+      minWidth: 150,
     },
     {
       header: "제조사",
-      name: "it_maker",
-      className: "font12",
+      name: "manufacturer",
+      className: "font12 text-center",
       hidden: false,
       minWidth: 60,
     },
     {
       header: "유통사",
-      name: "it_maker",
-      className: "font12",
+      name: "mb_id",
+      className: "font12 text-center",
       hidden: false,
-      minWidth: 60,
+      width: 70,
     },
     {
       header: "요청수량",
-      name: "sku",
-      className: "font12",
-      hidden: false,
-      minWidth: 60,
+      name: "quantity",
+      className: "font12 text-center",
+
+      width: 90,
     },
     {
       header: "견적가",
-      name: "qty",
-      className: "font12",
+      name: "price",
+      className: "font12 text-center",
+      editor: "text",
+
       renderer: {
         type: EstimateCustomCommonRenderer,
         options: {
           type: "number",
         },
       },
-      align: "center",
-      width: 60,
-      className: "font-12",
+      width: 120,
     },
 
     {
       header: "합계",
       name: "quantity",
+      className: "font12 text-center",
+
       hidden: false,
-      align: "center",
-      renderer: {
-        type: EstimateCustomCommonRenderer,
-        options: {
-          type: "number",
-        },
-      },
-      minWidth: 60,
+      width: 100,
       filter: "select",
     },
     {
       header: "제조일(D/C)",
       name: "dc",
-      className: "font12",
+      className: "font12 text-center",
       hidden: false,
       minWidth: 70,
     },
     {
       header: "packaging",
       name: "packaging",
-      className: "font12",
+      className: "font12 text-center",
       hidden: false,
       minWidth: 70,
     },
     {
       header: "납기(Lead Time)",
-      name: "lead_time",
-      className: "font12",
+      name: "leadtime",
+      className: "font12 text-center",
       hidden: false,
       minWidth: 70,
     },
   ];
-
-  // const columns = [
-  //   {
-  //     header: "순번",
-  //     name: "req_id",
-  //     width: 30,
-  //     className: "font12 text-center",
-
-  //     filter: "select",
-  //   },
-  //   {
-  //     header: "순번",
-  //     name: "p_es_id",
-  //     width: 30,
-  //     className: "font12 text-center",
-
-  //     filter: "select",
-  //   },
-  // ];
 
   const handlePageChange = (page) => setPage(page);
   const handleAlert = () => alert("준비 중입니다.");
@@ -364,7 +404,11 @@ export default function EstimateGrid(props) {
               </Button>
             </div>
             <div className={style.quotation_reply_btns_right}>
-              <Button type="button" className={style.estimate_list_detail_btn}>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={replyQuotationMaster}
+              >
                 견적회신하기
               </Button>
             </div>
