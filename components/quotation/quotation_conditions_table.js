@@ -1,28 +1,24 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import ReactDOM from "react-dom";
 import {
   Text,
   Button,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-  ModalFooter,
-  Modal,
-  useDisclosure,
-  Center,
+  Radio,
+  RadioGroup,
+  Stack,
   Box,
-  Input,
+  Select,
 } from "@chakra-ui/react";
 import Grid from "@toast-ui/react-grid";
 import TuiGrid from "tui-grid";
 import { loadProgressBar } from "axios-progress-bar";
-import { decodeToken, isLoginCheck } from "../../provider/auth";
+import { decodeToken } from "../../provider/auth";
 import style from "../../styles/Home.module.css";
 
 import Pagination from "react-js-pagination";
+import WriteInput from "../common/writeInput";
+import Btn from "../common/btn";
 
+import SearchBox from "../../components/SearchBox";
 import "tui-grid/dist/tui-grid.min.css";
 import "axios-progress-bar/dist/nprogress.css";
 import { GetCookie } from "../../provider/common";
@@ -56,95 +52,6 @@ TuiGrid.applyTheme("default", {
   },
 });
 
-// 순번표시 렌더러
-export class EstimateDataNumCustomRenderer {
-  constructor(props) {
-    const rootDom = document.createElement("div");
-    const row = props.grid.getRow(props.rowKey);
-    rootDom.style.overflow = "hidden";
-    this.el = rootDom;
-    // set instance property for grid
-    this.grid = props.grid;
-    this.props = props;
-    this.row = row;
-    if (props.columnInfo.renderer.options) {
-      this.click = props.columnInfo.renderer.options.handler;
-    }
-    this.render(props);
-  }
-
-  getElement() {
-    return this.el;
-  }
-
-  onClick() {
-    if (this.click) {
-      this.click(this.props);
-    }
-  }
-
-  render() {
-    let element;
-    if (this.row.data_type === "parent") {
-      element = <span>{this.props.value}</span>;
-    } else {
-      element = (
-        <button
-          onClick={() => this.onClick()}
-          className="btn chakra-link chakra-button btn-primary font-11"
-        >
-          선택
-        </button>
-      );
-    }
-    ReactDOM.render(element, this.el);
-  }
-}
-
-// 제조사 렌더러
-export class EsitmateCustomPartnumberRenderer {
-  constructor(props) {
-    const el = document.createElement("a");
-    this.el = el;
-    this.value = props.value; // 초기 값
-    this.render(props);
-  }
-
-  getElement() {
-    return this.el;
-  }
-
-  render(props) {
-    this.el.classList.add("ml-2");
-    // 수정된 text로 변경한다.
-    let row = props.grid.getRow(props.rowKey);
-    this.el.textContent = props.value;
-    if (row.stock_no) {
-      this.el.href = `/parts/view/PD${Number(row.stock_no)}`;
-      this.el.target = "_blank";
-      this.el.classList.add("text-primary");
-    }
-    if (row.data_num !== null) {
-      if (row.data_type === "child") {
-        this.el.classList.add("font12");
-      } else {
-        this.el.classList.add("font-weight-bold");
-      }
-      // 초기값과 변경된 값이 다르다면
-      if (props.value) {
-        if (this.value !== props.value) {
-          const i = document.createElement("i");
-          i.className = "fas fa-check text-success ml-2";
-          this.el.append(i);
-        } else {
-        }
-        this.value = props.value;
-      }
-    }
-  }
-}
-
-// 요청수량 렌더러
 export class EstimateCustomCommonRenderer {
   constructor(props) {
     this.el = document.createElement("span");
@@ -201,27 +108,139 @@ export default function QuotationConditionsTable() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
   const [total, setTotal] = useState(1);
+  const [completion, setCompletion] = useState("");
+  const [incompletion, setInCompletion] = useState("");
+  const [text, setText] = useState("");
+
+  const [value, setValue] = useState("");
+
   // 데이터 로드
-  const loadData = async () => {
+  const loadData = async (e) => {
     try {
+      // 토큰 설정 -> 해당 유저 it_maker 값 필요
+      const token = await GetCookie("token");
+      const tokenInfo = await decodeToken(token);
+      const quotationInfoId = tokenInfo.payload.it_maker;
+
+      // 온다파츠 견적 회신 리스트(총 데이터)
+      // 처음 reload될 때 보여지는 화면
       let URL =
         process.env.ONDA_API_URL +
-        "/api/quotation/count" +
-        `?offset=${perPage}&page=${page}`;
+        "/api/quotation/id/detail/count/" +
+        `${quotationInfoId}?offset=${perPage}&page=${page}`;
 
       const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+
+      // 견적완료 및 미완료 radio bo의 data를 보여주기 위해선
+      // 첫 화면 setData의 위치를 불가피하게 맨 위로 보내게 됨
+      setData(res.data.data);
+
+      // 온다파츠 견적 회신 리스트(총 개수)
+      let countURL =
+        process.env.ONDA_API_URL +
+        "/api/quotation/id/detail/onlycount/" +
+        `${quotationInfoId}`;
+
+      const count = await axios.get(countURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+
+      // 한 페이지 당 보여지는 데어터 개수 및 전체 데이터 개수 뿌리기
+      setPerPage(perPage);
+      setTotal(count.data.data);
+
+      // 견적 완료 및 미완료 radio box 누를 때의 견적 회신 리스트
+      // 견적 완료 및 미완료 전체 리스트
+      if (e == "all") {
+        let URL =
+          process.env.ONDA_API_URL +
+          "/api/quotation/id/detail/count/" +
+          `${quotationInfoId}?offset=${perPage}&page=${page}&type=all`;
+        const res = await axios.get(URL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+      }
+
+      // 견적완료 리스트
+      if (e == "complete") {
+        let URL =
+          process.env.ONDA_API_URL +
+          "/api/quotation/id/detail/count/" +
+          `${quotationInfoId}?offset=${perPage}&page=${page}&type=complete`;
+        const res = await axios.get(URL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+      }
+
+      // 견적 미완료 전체 리스트
+      if (e == "incomplete") {
+        let URL =
+          process.env.ONDA_API_URL +
+          "/api/quotation/id/detail/count/" +
+          `${quotationInfoId}?offset=${perPage}&page=${page}&type=incomplete`;
+        const res = await axios.get(URL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+      }
+
+      //견적 상황판 완료 및 미완료 금액 설정
+      const quotationMoneyURL =
+        process.env.ONDA_API_URL + "/api/quotation/partner/sum";
+      let body = { it_maker: quotationInfoId };
+      const quotationRes = await axios.post(quotationMoneyURL, body, {
         headers: {
           "content-type": "application/json",
           Authorization: `Bearer ${await GetCookie("token")}`,
         },
       });
 
-      setPerPage(perPage);
-      setTotal(9);
-      setData(res.data.data);
+      setInCompletion(quotationRes.data.data.incompleteSum);
+      setCompletion(quotationRes.data.data.completeSum);
 
-      console.log(page);
-    } catch (e) {}
+      if (
+        text === null ||
+        text === " " ||
+        text === "" ||
+        text === "undefined"
+      ) {
+        alert("검색어를 입력해주세요.");
+        return;
+      } else {
+        let searchURL =
+          process.env.ONDA_API_URL +
+          "/api/quotation/id/detail/count/" +
+          `${quotationInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}`;
+        const res = await axios.get(searchURL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+      }
+    } catch (e) {
+      console.log("err" + e);
+    }
   };
 
   // 컬럼 설정
@@ -231,68 +250,57 @@ export default function QuotationConditionsTable() {
       name: "data_num",
       width: 30,
       className: "font12 text-center",
-      renderer: {
-        type: EstimateDataNumCustomRenderer,
-      },
-      filter: "select",
     },
     {
       header: "견적번호",
-      name: "partnumber",
+      name: "rply_id",
       className: "font12 text-center",
-      // renderer: {
-      //   type: EsitmateCustomPartnumberRenderer,
-      // },
-      minWidth: 130,
+
+      width: 80,
       hidden: false,
       filter: "select",
     },
 
     {
       header: "부품번호",
-      name: "manufacturer",
+      name: "partnumber",
       className: "font12 text-center",
       hidden: false,
-      minWidth: 130,
+      minWidth: 150,
     },
     {
       header: "상태",
-      name: "status",
+      name: "es_state",
       className: "font12 text-center",
       hidden: false,
-      minWidth: 130,
+      width: 70,
     },
     {
       header: "제조사",
-      name: "it_maker",
+      name: "manufacturer",
       className: "font12 text-center",
       hidden: false,
-      minWidth: 60,
+      minWidth: 80,
     },
     {
       header: "유통사",
-      name: "it_maker",
+      name: "mb_id",
       className: "font12 text-center",
       hidden: false,
-      minWidth: 60,
+      minWidth: 70,
     },
     {
       header: "요청수량",
-      name: "sku",
+      name: "quantity",
       className: "font12 text-center",
-      hidden: false,
-      minWidth: 60,
+      align: "center",
+
+      width: 70,
     },
     {
       header: "견적가",
-      name: "qty",
+      name: "price",
       className: "font12 text-center",
-      renderer: {
-        type: EstimateCustomCommonRenderer,
-        options: {
-          type: "number",
-        },
-      },
       align: "center",
       width: 60,
       className: "font-12",
@@ -303,12 +311,7 @@ export default function QuotationConditionsTable() {
       name: "quantity",
       hidden: false,
       align: "center",
-      renderer: {
-        type: EstimateCustomCommonRenderer,
-        options: {
-          type: "number",
-        },
-      },
+
       minWidth: 60,
       filter: "select",
     },
@@ -328,14 +331,33 @@ export default function QuotationConditionsTable() {
     },
     {
       header: "납기(Lead Time)",
-      name: "lead_time",
+      name: "leadtime",
       className: "font12 text-center",
       hidden: false,
       minWidth: 70,
     },
   ];
 
+  // 엑셀 업로드 및 다운로드 [준비 중] 팝업 띄우기
+  const handleAlert = () => alert("준비 중입니다.");
+  // 전체 페이지 설정
   const handlePageChange = (page) => setPage(page);
+
+  // radio box 클릭 이벤트
+  const handleRadio = async (e) => {
+    loadData(e);
+  };
+
+  const onSelect = (e) => {
+    setValue(e.target.value);
+  };
+  const searchText = useCallback((e) => {
+    setText(e.target.value);
+  });
+
+  const _handleSearch = async () => {
+    loadData();
+  };
 
   useEffect(() => {
     loadData();
@@ -344,14 +366,68 @@ export default function QuotationConditionsTable() {
   if (data) {
     return (
       <>
+        {/* 견적상황판 검색위젯 시작 */}
+        <div className={style.search_area_menu}>
+          <div className={style.search_business_box}>
+            <div className={style.search_business_indicator_box}>
+              <Text>견적 완료 금액</Text>
+              <Text> {completion}</Text>
+            </div>
+            <div className={style.search_business_indicator_box}>
+              <Text>견적 미완료 금액</Text>
+              <Text>{incompletion}</Text>
+            </div>
+          </div>
+          <div style={{ display: "flex" }}>
+            <Box className="order-Header__box flex-center">
+              <Box className="order-Header__search">
+                <Select
+                  placeholder="선택"
+                  width="120px"
+                  onChange={onSelect}
+                  value={value}
+                >
+                  <option value="partnumber">부품번호</option>
+                  <option value="manufacturer">제조사</option>
+                </Select>
+                <Box className="order-Header__search__right">
+                  <WriteInput
+                    example="견적번호, 부품번호, 제조사, 유통사 등"
+                    writeEvent={searchText}
+                    writeValue={text}
+                  />
+                  <Btn text="조회" clickEvent={_handleSearch} />
+                </Box>
+              </Box>
+            </Box>
+            <div
+              className={style.search_radio_box}
+              style={{ padding: "27px 20px", height: "fit-content" }}
+            >
+              <RadioGroup defaultValue="1" onChange={handleRadio}>
+                <Stack direction="row">
+                  <Radio value="all">전체</Radio>
+                  <Radio value="complete">견적완료</Radio>
+                  <Radio value="incomplete">견적 미완료</Radio>
+                </Stack>
+              </RadioGroup>
+            </div>
+          </div>
+        </div>
         <div className="mb-5 estimate-detail__body">
           <div className={style.quotation_conditions_btns}>
             <div className={style.quotation_conditions_btns_right}>
-              <Button type="button" className={style.estimate_list_detail_btn}>
+              <div></div>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={handleAlert}
+              >
                 엑셀 다운로드
               </Button>
             </div>
           </div>
+          {/* 검색상황판 검색위젯 끝 */}
           <div className={style.quotation_conditions_table}>
             <Grid
               ref={ref}
@@ -380,4 +456,3 @@ export default function QuotationConditionsTable() {
     return <></>;
   }
 }
-
