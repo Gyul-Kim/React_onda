@@ -216,28 +216,6 @@ export default function QuotationConditionsTable() {
 
       setInCompletion(quotationRes.data.data.incompleteSum);
       setCompletion(quotationRes.data.data.completeSum);
-
-      if (
-        text === null ||
-        text === " " ||
-        text === "" ||
-        text === "undefined"
-      ) {
-        alert("검색어를 입력해주세요.");
-        return;
-      } else {
-        let searchURL =
-          process.env.ONDA_API_URL +
-          "/api/quotation/id/detail/count/" +
-          `${quotationInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}`;
-        const res = await axios.get(searchURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-      }
     } catch (e) {
       console.log("err" + e);
     }
@@ -348,22 +326,175 @@ export default function QuotationConditionsTable() {
     loadData(e);
   };
 
+  // select 박스 부풒번호 및 제조사 선택칸
   const onSelect = (e) => {
     setValue(e.target.value);
   };
+
+  // 검색어 입력 검색
   const searchText = useCallback((e) => {
     setText(e.target.value);
   });
 
+  // 조회 버튼 클릭 시 이벤트
   const _handleSearch = async () => {
-    loadData();
+    // 토큰 설정 -> 해당 유저 it_maker 값 필요
+    const token = await GetCookie("token");
+    const tokenInfo = await decodeToken(token);
+    const quotationInfoId = tokenInfo.payload.it_maker;
+    try {
+      // 검색어와 부품번호 및 제조사 선택 했을 때
+      if (text && value) {
+        let searchURL =
+          process.env.ONDA_API_URL +
+          "/api/quotation/id/detail/count/" +
+          `${quotationInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}`;
+        const res = await axios.get(searchURL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+
+        // 검색조건에 맞는 데이터가 있을 때
+        if (res.data.data.length > 0) {
+          setData(res.data.data);
+        }
+        // 검색조건에 맞는 데이터가 없을 때
+        if (res.data.data == 0) {
+          setData("undefined");
+        }
+      }
+
+      // 부품번호 및 제조서 미선택
+      // or 검색어 비어 있을 때.
+      if (
+        text === null ||
+        text === " " ||
+        text === "" ||
+        text === "undefined" ||
+        value === null ||
+        value === " " ||
+        value === "" ||
+        value === "undefined"
+      ) {
+        // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
+        if (text && value === "") {
+          alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
+          return;
+        }
+
+        let URL =
+          process.env.ONDA_API_URL +
+          "/api/quotation/id/detail/count/" +
+          `${quotationInfoId}?offset=${perPage}&page=${page}&type=all`;
+        const res = await axios.get(URL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+      }
+    } catch (e) {
+      console.log("err " + e);
+    }
   };
 
   useEffect(() => {
     loadData();
   }, [page]);
 
-  if (data) {
+  if (data !== "undefined") {
+    return (
+      <>
+        {/* 견적상황판 검색위젯 시작 */}
+        <div className={style.search_area_menu}>
+          <div className={style.search_business_box}>
+            <div className={style.search_business_indicator_box}>
+              <Text>견적 완료 금액</Text>
+              <Text> {completion}</Text>
+            </div>
+            <div className={style.search_business_indicator_box}>
+              <Text>견적 미완료 금액</Text>
+              <Text>{incompletion}</Text>
+            </div>
+          </div>
+          <div style={{ display: "flex" }}>
+            <Box className="order-Header__box flex-center">
+              <Box className="order-Header__search">
+                <Select
+                  placeholder="선택"
+                  width="120px"
+                  onChange={onSelect}
+                  value={value}
+                >
+                  <option value="partnumber">부품번호</option>
+                  <option value="manufacturer">제조사</option>
+                </Select>
+                <Box className="order-Header__search__right">
+                  <WriteInput
+                    example="부품번호 및 제조사 등"
+                    writeEvent={searchText}
+                    writeValue={text}
+                  />
+                  <Btn text="조회" clickEvent={_handleSearch} />
+                </Box>
+              </Box>
+            </Box>
+            <div
+              className={style.search_radio_box}
+              style={{ padding: "27px 20px", height: "fit-content" }}
+            >
+              <RadioGroup defaultValue="1" onChange={handleRadio}>
+                <Stack direction="row">
+                  <Radio value="all">전체</Radio>
+                  <Radio value="complete">견적완료</Radio>
+                  <Radio value="incomplete">견적 미완료</Radio>
+                </Stack>
+              </RadioGroup>
+            </div>
+          </div>
+        </div>
+        <div className="mb-5 estimate-detail__body">
+          <div className={style.quotation_conditions_btns}>
+            <div className={style.quotation_conditions_btns_right}>
+              <div></div>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={handleAlert}
+              >
+                엑셀 다운로드
+              </Button>
+            </div>
+          </div>
+          {/* 검색상황판 검색위젯 끝 */}
+          <div className={style.quotation_conditions_table}>
+            <Grid
+              ref={ref}
+              data={data}
+              columns={columns}
+              columnOptions={{ resizable: true }}
+              rowHeaders={[{ type: "checkbox", checked: false }]}
+            />
+          </div>
+
+          <div className="menu_pagination">
+            <Pagination
+              activePage={page}
+              itemsCountPerPage={perPage}
+              totalItemsCount={total}
+              pageRangeDisplayed={5}
+              prevPageText={"‹"}
+              nextPageText={"›"}
+              onChange={handlePageChange}
+            />
+          </div>
+        </div>
+      </>
+    );
+  } else {
     return (
       <>
         {/* 견적상황판 검색위젯 시작 */}
@@ -428,31 +559,14 @@ export default function QuotationConditionsTable() {
             </div>
           </div>
           {/* 검색상황판 검색위젯 끝 */}
-          <div className={style.quotation_conditions_table}>
-            <Grid
-              ref={ref}
-              data={data}
-              columns={columns}
-              columnOptions={{ resizable: true }}
-              rowHeaders={[{ type: "checkbox", checked: false }]}
-            />
-          </div>
-
-          <div className="menu_pagination">
-            <Pagination
-              activePage={page}
-              itemsCountPerPage={perPage}
-              totalItemsCount={total}
-              pageRangeDisplayed={5}
-              prevPageText={"‹"}
-              nextPageText={"›"}
-              onChange={handlePageChange}
-            />
-          </div>
+          <Grid
+            ref={ref}
+            columns={columns}
+            columnOptions={{ resizable: true }}
+            rowHeaders={[{ type: "checkbox", checked: false }]}
+          />
         </div>
       </>
     );
-  } else {
-    return <></>;
   }
 }
