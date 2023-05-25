@@ -3,29 +3,25 @@ import ReactDOM from "react-dom";
 import {
   Text,
   Button,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-  ModalFooter,
-  Modal,
-  useDisclosure,
-  Center,
+  Select,
   Box,
-  Input,
+  Radio,
+  RadioGroup,
+  Stack,
 } from "@chakra-ui/react";
 import Grid from "@toast-ui/react-grid";
 import TuiGrid from "tui-grid";
 import { loadProgressBar } from "axios-progress-bar";
-import { decodeToken, isLoginCheck } from "../../provider/auth";
+import { decodeToken } from "../../provider/auth";
+import { GetCookie } from "../../provider/common";
+
 import style from "../../styles/Home.module.css";
+import Btn from "../common/btn";
+import Pagination from "react-js-pagination";
+import WriteInput from "../common/writeInput";
 
 import "tui-grid/dist/tui-grid.min.css";
 import "axios-progress-bar/dist/nprogress.css";
-import { removeData } from "jquery";
-import { reset } from "numeral";
-import { areIntervalsOverlapping } from "date-fns";
 // 전역변수
 const axios = require("axios").default;
 // Toast-ui에서 사용하는 Grid css
@@ -219,116 +215,115 @@ async function getPartnerData(keyword) {
 
 // 견적서 tui grid
 export default function OrderAdminGrid(props) {
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const urlParams = new URLSearchParams(window.location.search);
   loadProgressBar();
   const ref = useRef();
-
-  const ref_partner = useRef();
-  const ref_estimate_partner = useRef();
-
-  const es_id = props.es_id;
-  const type = urlParams.get("type");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [total, setTotal] = useState(1);
   const [data, setData] = useState();
-  const [keyword, setKeyword] = useState();
-  const [mb_id, setMbId] = useState(null);
 
-  const [dataPartner, setDataPartner] = useState();
-  const [dataSendPartner, setDataSendPartner] = useState();
+  const [confirmed, setConfirmed] = useState("");
+  const [ongoing, setOngoing] = useState("");
+  const [cancelled, setCancelled] = useState("");
 
-  useEffect(() => {
-    initPartnerData();
-  }, []);
-
-  const initPartnerData = async () => {
-    try {
-      const res = await getPartnerData();
-      setDataPartner(res.data.partners);
-    } catch (e) {
-      // setLoadingShow(false);
-    }
-  };
-
-  const urlFromOndaQuotation =
-    process.env.ONDA_API_URL + `/api/quotation/list/${es_id}`;
-
-  const [keywordData, setKeywordData] = useState({
-    it_maker: "",
-  });
+  const [text, setText] = useState("");
+  const [value, setValue] = useState("");
 
   // 데이터 로드
-  const loadData = async (props) => {
-    // await axios.get(urlFromOndaQuotation).then((res) => {
-    //   setData(res.data.data);
-    //   getMbId();
-    // });
+  const loadData = async (e) => {
+    // 토큰 설정 -> 해당 유저 it_maker 값 필요
+    const token = await GetCookie("token");
+    const tokenInfo = await decodeToken(token);
+    const orderInfoId = tokenInfo.payload.it_maker;
 
-    let beforeOndaPC = [
-      {
-        data_num: 1,
-        data_type: "parent",
-        partnumber: "WR04X000PTL",
-        status: "주문",
-        manufacturer: "WALSIN",
-        it_maker: "arrow",
-        sku: "3772975",
-        qty: "300",
-        korean_price_attr: "12455",
-        korean_est_price_attr: "10000",
-        korean_total_est_price: "3000000",
-        quantity: 10000,
-        packaging: "In Stock",
-        dc: "",
-        lead_time: 3,
+    let URL =
+      process.env.ONDA_API_URL +
+      "/api/order/partner/" +
+      `${orderInfoId}?offset=${perPage}&page=${page}`;
+
+    const res = await axios.get(URL, {
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer` + token,
       },
-      {
-        data_num: 2,
-        data_type: "parent",
-        status: "완료",
+    });
 
-        partnumber: "WR04X000PTL",
-        manufacturer: "WALSIN",
-        it_maker: "digikey",
-        sku: "3772975",
-        qty: "400",
-        korean_price_attr: "13455",
-        korean_est_price_attr: "10000",
-        korean_total_est_price: "4000000",
-        quantity: 10000,
-        packaging: "Cut Stripes",
-        dc: "",
-        lead_time: 5,
+    setData(res.data.data);
+    setPerPage(perPage);
+    setTotal(res.data.data.length);
+
+    //견적 상황판 완료 및 미완료 금액 설정
+    const orderMoneyURL =
+      process.env.ONDA_API_URL + "/api/order/partner/SalesSum";
+    let body = { it_maker: orderInfoId };
+    const orderRes = await axios.post(orderMoneyURL, body, {
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${await GetCookie("token")}`,
       },
-      {
-        data_num: 3,
-        data_type: "parent",
-        status: "완료",
+    });
 
-        partnumber: "WR04X000PTL",
-        manufacturer: "WALSIN",
-        it_maker: "mouser",
-        sku: "3772975",
-        qty: "500",
-        korean_price_attr: "11455",
-        korean_est_price_attr: "10000",
-        korean_total_est_price: "5000000",
-        quantity: 10000,
-        packaging: "Tube",
-        dc: "",
-        lead_time: 4,
-      },
-    ];
-    setData(beforeOndaPC);
-  };
+    setConfirmed(orderRes.data.data.completeSum);
+    setOngoing(orderRes.data.data.onGoingSum);
+    setCancelled(orderRes.data.data.cancecledSum);
 
-  const getMbId = async () => {
-    //로그인 했을때만 mb_id를 던지도록 보완
-    const isLogin = await isLoginCheck();
-    if (isLogin) {
-      const info = await decodeToken();
-      setMbId(info.payload.mb_id);
-    } else {
-      setMbId(null);
+    if (e == "all") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=all`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setData(res.data.data);
+    }
+
+    // 견적완료 리스트
+    if (e == "ongoing") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=placed`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setData(res.data.data);
+    }
+
+    // 견적 미완료 전체 리스트
+    if (e == "confirmed") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=incomplete`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setData(res.data.data);
+    }
+
+    if (e == "cancelled") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=cancelled`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setData(res.data.data);
     }
   };
 
@@ -346,33 +341,30 @@ export default function OrderAdminGrid(props) {
     },
     {
       header: "견적번호",
-      name: "partnumber",
+      name: "od_id",
       className: "font12 text-center",
-      // renderer: {
-      //   type: EsitmateCustomPartnumberRenderer,
-      // },
-      minWidth: 130,
+      width: 80,
       hidden: false,
       filter: "select",
     },
 
     {
       header: "부품번호",
-      name: "manufacturer",
+      name: "partnumber",
       className: "font12 text-center",
       hidden: false,
-      minWidth: 130,
+      width: 150,
     },
     {
       header: "상태",
-      name: "status",
+      name: "od_status",
       className: "font12 text-center",
       hidden: false,
       minWidth: 130,
     },
     {
       header: "제조사",
-      name: "it_maker",
+      name: "manufacturer",
       className: "font12 text-center",
       hidden: false,
       minWidth: 60,
@@ -386,14 +378,14 @@ export default function OrderAdminGrid(props) {
     },
     {
       header: "요청수량",
-      name: "sku",
+      name: "quantity",
       className: "font12 text-center",
       hidden: false,
-      minWidth: 60,
+      width: 60,
     },
     {
       header: "견적가",
-      name: "qty",
+      name: "panda_price",
       className: "font12 text-center",
       renderer: {
         type: EstimateCustomCommonRenderer,
@@ -402,7 +394,7 @@ export default function OrderAdminGrid(props) {
         },
       },
       align: "center",
-      width: 60,
+      width: 80,
       className: "font-12",
     },
 
@@ -436,172 +428,211 @@ export default function OrderAdminGrid(props) {
     },
     {
       header: "납기(Lead Time)",
-      name: "lead_time",
+      name: "leadtime",
       className: "font12 text-center",
       hidden: false,
       minWidth: 70,
     },
   ];
 
-  const handleSearch = async () => {
-    (async () => {
-      if (keyword == null || keyword == "undefined") {
-        alert("검색어 입력은 필수입니다.");
+  // 주문확정하기
+  const confirmOrder = async () => {
+    try {
+      let rows = ref.current.getInstance().getCheckedRows();
+
+      if (rows.length === 0) {
+        alert("주문 확정할 부품번호 선택은 필수입니다.");
         return;
       }
 
-      try {
-        const res = await getPartnerData(keyword);
-        setDataPartner(res.data.partners);
-      } catch (e) {
-        // setLoadingShow(false);
-      }
-    })();
-  };
-
-  const handleSelect = async () => {
-    const rows = ref_partner.current.getInstance().getCheckedRows();
-
-    if (rows.length != 0) {
-      if (dataSendPartner === undefined) {
-        let dt_ids = rows.map((item) => {
-          return {
-            id: item.id,
-            partner_name: item.partner_name,
-            _attributes: { checkDisabled: false, checked: true },
-          };
-        });
-
-        setDataSendPartner(dt_ids);
-      } else {
-        let dt_ids = ref_estimate_partner.current.getInstance().getData();
-
-        rows.map((item) => {
-          let ret = dataSendPartner.find((el, idx, data) => {
-            if (el.id === item.id) {
-              return true;
-            }
-          });
-
-          if (ret == undefined) {
-            dt_ids.push({
-              id: item.id,
-              partner_name: item.partner_name,
-              _attributes: { checkDisabled: false, checked: true },
-            });
-          }
-        });
-        setDataSendPartner(dt_ids);
-      }
-    }
-  };
-
-  // 유통사 선택 견적요청하기
-  const requestQuotationFromDistribution = async () => {
-    // 추후 체크하는 견적 내역 변경때 사용
-    let rows = ref.current.getInstance().getCheckedRows();
-
-    if (rows.length === 0) {
-      alert("견적요청할 부품번호 선택은 필수입니다.");
-      return;
-    }
-    onOpen();
-  };
-
-  // 유통사 선택 견적 요청한 후, 데이터 세팅
-  const handleAfterData = async () => {
-    let childrenRows = ref_estimate_partner.current
-      .getInstance()
-      .getCheckedRows();
-    let rows = ref.current.getInstance().getCheckedRows();
-    let body = [];
-
-    if (childrenRows == 0) {
-      alert("견적대상 유통사를 선택해야 합니다.");
-      return;
-    }
-
-    for (let i = 0; i < rows.length; i++) {
-      body[i] = {
-        dtl_id: rows[i].dtl_id,
-        data_num: rows[i].data_num,
-        partnumber: rows[i].partnumber,
-        manufacturer: rows[i].manufacturer,
-        it_maker: rows[i].it_maker,
-        sku: rows[i].sku,
-        qty: rows[i].qty,
-        quantity: rows[i].quantity,
-        korean_price_attr: rows[i].korean_price_attr,
-        korean_est_price_attr: rows[i].korean_est_price_attr,
-        korean_total_est_price: rows[i].korean_total_est_price,
-        packaging: rows[i].packaging,
-        dc: rows[i].dc,
-        lead_time: rows[i].lead_time,
-        _children: [],
-      };
-
-      for (let j = 0; j < childrenRows.length; j++) {
-        body[i]._children.push({
-          data_type: "child",
-          partnumber: rows[i].partnumber,
+      let body = {};
+      for (let i = 0; i < rows.length; i++) {
+        body[i] = {
+          od_id: rows[i].od_id,
+          p_it_maker: rows[i].p_it_maker,
+          od_status: "confirmed",
+          price: rows[i].price,
+          panda_price: rows[i].panda_price,
           manufacturer: rows[i].manufacturer,
-          it_maker: childrenRows[j].id,
-          sku: "",
-          qty: "",
-          korean_price_attr: "",
-          korean_est_price_attr: "",
-          korean_total_est_price: "",
-          quantity: "",
-          packaging: "",
-          dc: "",
-          lead_time: "",
-        });
+          partnumber: rows[i].partnumber,
+          quantity: rows[i].quantity,
+          dc: rows[i].dc,
+          p_es_id: rows[i].p_es_id,
+          leadtime: rows[i].leadtime,
+          packaging: rows[i].packaging,
+        };
       }
+
+      let URL = process.env.ONDA_API_URL + "/api/order/partner/changeStatus";
+
+      const res = await axios.get(URL, body, {
+        headers: {
+          "content-type": "application/json",
+        },
+      });
+
+      if (res.status === 200) {
+        alert("주문확정이 완료되었습니다.");
+        setTimeout(function () {
+          location.reload();
+        }, 1000);
+      } else {
+        alert("다시 시도해주세요");
+      }
+    } catch (e) {
+      console.log("err " + e);
     }
-
-    // try {
-    //   if (keywordRows == 0) {
-    //     alert("유통사 선택은 필수입니다.");
-    //     return;
-    //   }
-
-    //   if (childrenRows == 0) {
-    //     alert("견적대상 유통사를 선택해야 합니다.");
-    //     return;
-    //   }
-    //   onClose();
-    // } catch (e) {
-    //   console.log(e);
-    // }
-
-    onClose();
   };
 
-  // 판다파츠 견적회신하기
-  const replyQuotationToPandaParts = async () => {};
+  const handlePageChange = (page) => setPage(page);
 
-  // [유통사 선택 젼적 요청하기] 모달창 검색
-  const searchKeyword = useCallback((e) => {
-    keywordData.it_maker = e.target.value;
-    setKeyword(e.target.value);
+  // radio box 클릭 이벤트
+  const handleRadio = async (e) => {
+    loadData(e);
+  };
+
+  // select 박스 부풒번호 및 제조사 선택칸
+  const onSelect = (e) => {
+    setValue(e.target.value);
+  };
+
+  // 검색어 입력 검색
+  const searchText = useCallback((e) => {
+    setText(e.target.value);
   });
 
-  useEffect(() => {
-    if (!data) {
-      loadData(es_id);
+  // 조회 버튼 클릭 시 이벤트
+  const _handleSearch = async () => {
+    // 토큰 설정 -> 해당 유저 it_maker 값 필요
+    const token = await GetCookie("token");
+    const tokenInfo = await decodeToken(token);
+    const orderInfoId = tokenInfo.payload.it_maker;
+    try {
+      // 검색어와 부품번호 및 제조사 선택 했을 때
+      if (text && value) {
+        let searchURL =
+          process.env.ONDA_API_URL +
+          "/api/order/partner/" +
+          `${orderInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}`;
+        const res = await axios.get(searchURL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+
+        // 검색조건에 맞는 데이터가 있을 때
+        if (res.data.data.length > 0) {
+          setData(res.data.data);
+        }
+        // 검색조건에 맞는 데이터가 없을 때
+        if (res.data.data == 0) {
+          setData("undefined");
+        }
+      }
+
+      // 부품번호 및 제조서 미선택
+      // or 검색어 비어 있을 때.
+      if (
+        text === null ||
+        text === " " ||
+        text === "" ||
+        text === "undefined" ||
+        value === null ||
+        value === " " ||
+        value === "" ||
+        value === "undefined"
+      ) {
+        // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
+        if (text && value === "") {
+          alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
+          return;
+        }
+
+        let URL =
+          process.env.ONDA_API_URL +
+          "/api/order/partner/" +
+          `${orderInfoId}?offset=${perPage}&page=${page}&type=all`;
+        const res = await axios.get(URL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+      }
+    } catch (e) {
+      console.log("err " + e);
     }
+  };
+
+  useEffect(() => {
+    loadData(data);
   }, []);
 
   if (data) {
     return (
       <>
+        <div className={style.search_area_menu}>
+          <div className={style.search_business_box}>
+            <div className={style.search_business_indicator_box}>
+              <Text>주문 진행 금액</Text>
+              <Text> {ongoing}</Text>
+            </div>
+            <div className={style.search_business_indicator_box}>
+              <Text>주문 확정 금액</Text>
+              <Text>{confirmed}</Text>
+            </div>
+            <div className={style.search_business_indicator_box}>
+              <Text>주문 취소 금액</Text>
+              <Text>{cancelled}</Text>
+            </div>
+          </div>
+          <div style={{ display: "flex" }}>
+            <Box className="order-Header__box flex-center">
+              <Box className="order-Header__search">
+                <Select
+                  placeholder="선택"
+                  width="120px"
+                  onChange={onSelect}
+                  value={value}
+                >
+                  <option value="partnumber">부품번호</option>
+                  <option value="manufacturer">제조사</option>
+                </Select>
+                <Box className="order-Header__search__right">
+                  <WriteInput
+                    example="부품번호 및 제조사 등"
+                    writeEvent={searchText}
+                    writeValue={text}
+                  />
+                  <Btn text="조회" clickEvent={_handleSearch} />
+                </Box>
+              </Box>
+            </Box>
+            <div
+              className={style.search_radio_box}
+              style={{ padding: "27px 20px", height: "fit-content" }}
+            >
+              <RadioGroup defaultValue="1" onChange={handleRadio}>
+                <Stack direction="row">
+                  <Radio value="all">전체</Radio>
+                  <Radio value="ongoing">주문진행</Radio>
+                  <Radio value="confirmed">주문확정</Radio>
+                  <Radio value="cancelled">주문취소</Radio>
+                </Stack>
+              </RadioGroup>
+            </div>
+          </div>
+        </div>
         <div className="mb-5 estimate-detail__body">
           <div className={style.order_btns}>
             <div className={style.order_btns_right}>
+              <div></div>
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
-                onClick={requestQuotationFromDistribution}
+                onClick={confirmOrder}
               >
                 주문확정
               </Button>
@@ -622,6 +653,18 @@ export default function OrderAdminGrid(props) {
               }}
               rowHeaders={[{ type: "checkbox", checked: false }]}
               refresh={() => loadData()}
+            />
+          </div>
+
+          <div className="menu_pagination">
+            <Pagination
+              activePage={page}
+              itemsCountPerPage={perPage}
+              totalItemsCount={total}
+              pageRangeDisplayed={5}
+              prevPageText={"‹"}
+              nextPageText={"›"}
+              onChange={handlePageChange}
             />
           </div>
         </div>
