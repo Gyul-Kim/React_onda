@@ -198,7 +198,7 @@ async function getPartnerData(keyword) {
     const res = await axios.get(URL, {
       headers: {
         "content-type": "application/json",
-        // Authorization: `Bearer ${await GetCookie("token")}`,
+        // Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
       },
     });
     if (res.data.status === 200) {
@@ -233,14 +233,14 @@ export default function OrderAdminGrid(props) {
   // 데이터 로드
   const loadData = async (e) => {
     // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("token");
+    const token = await GetCookie("ondaPcToken");
     const tokenInfo = await decodeToken(token);
     const orderInfoId = tokenInfo.payload.it_maker;
 
     let URL =
       process.env.ONDA_API_URL +
       "/api/order/partner/" +
-      `${orderInfoId}?offset=${perPage}&page=${page}`;
+      `${orderInfoId}?offset=${perPage}&page=${page}&type=placed,confirmed`;
 
     const res = await axios.get(URL, {
       headers: {
@@ -254,25 +254,22 @@ export default function OrderAdminGrid(props) {
     setTotal(res.data.data.length);
 
     //견적 상황판 완료 및 미완료 금액 설정
-    const orderMoneyURL =
-      process.env.ONDA_API_URL + "/api/order/partner/SalesSum";
+    const orderMoneyURL = process.env.ONDA_API_URL + "/api/order/partner/sum";
     let body = { it_maker: orderInfoId };
     const orderRes = await axios.post(orderMoneyURL, body, {
       headers: {
         "content-type": "application/json",
-        Authorization: `Bearer ${await GetCookie("token")}`,
+        Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
       },
     });
-
     setConfirmed(orderRes.data.data.completeSum);
     setOngoing(orderRes.data.data.onGoingSum);
-    setCancelled(orderRes.data.data.cancecledSum);
 
     if (e == "all") {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=all`;
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=placed,confirmed`;
       const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
@@ -302,21 +299,7 @@ export default function OrderAdminGrid(props) {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=incomplete`;
-      const res = await axios.get(URL, {
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer` + token,
-        },
-      });
-      setData(res.data.data);
-    }
-
-    if (e == "cancelled") {
-      let URL =
-        process.env.ONDA_API_URL +
-        "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=cancelled`;
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=confirmed`;
       const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
@@ -445,33 +428,25 @@ export default function OrderAdminGrid(props) {
         return;
       }
 
-      let body = {};
-      for (let i = 0; i < rows.length; i++) {
-        body[i] = {
-          od_id: rows[i].od_id,
-          p_it_maker: rows[i].p_it_maker,
+      let body = { orderLists: [] };
+      for (const row of rows) {
+        body.orderLists.push({
+          od_id: row.od_id,
           od_status: "confirmed",
-          price: rows[i].price,
-          panda_price: rows[i].panda_price,
-          manufacturer: rows[i].manufacturer,
-          partnumber: rows[i].partnumber,
-          quantity: rows[i].quantity,
-          dc: rows[i].dc,
-          p_es_id: rows[i].p_es_id,
-          leadtime: rows[i].leadtime,
-          packaging: rows[i].packaging,
-        };
+        });
       }
+
+      console.log(JSON.stringify(body));
 
       let URL = process.env.ONDA_API_URL + "/api/order/partner/changeStatus";
 
-      const res = await axios.get(URL, body, {
+      const res = await axios.post(URL, body, {
         headers: {
           "content-type": "application/json",
         },
       });
 
-      if (res.status === 200) {
+      if (res.status === 201) {
         alert("주문확정이 완료되었습니다.");
         setTimeout(function () {
           location.reload();
@@ -504,8 +479,9 @@ export default function OrderAdminGrid(props) {
   // 조회 버튼 클릭 시 이벤트
   const _handleSearch = async () => {
     // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("token");
+    const token = await GetCookie("ondaPcToken");
     const tokenInfo = await decodeToken(token);
+
     const orderInfoId = tokenInfo.payload.it_maker;
     try {
       // 검색어와 부품번호 및 제조사 선택 했을 때
@@ -520,7 +496,6 @@ export default function OrderAdminGrid(props) {
             Authorization: `Bearer` + token,
           },
         });
-
         // 검색조건에 맞는 데이터가 있을 때
         if (res.data.data.length > 0) {
           setData(res.data.data);
@@ -570,22 +545,18 @@ export default function OrderAdminGrid(props) {
     loadData(data);
   }, []);
 
-  if (data) {
+  if (data !== "undefined") {
     return (
       <>
         <div className={style.search_area_menu}>
           <div className={style.search_business_box}>
             <div className={style.search_business_indicator_box}>
-              <Text>주문 진행 금액</Text>
-              <Text> {ongoing}</Text>
-            </div>
-            <div className={style.search_business_indicator_box}>
               <Text>주문 확정 금액</Text>
               <Text>{confirmed}</Text>
             </div>
             <div className={style.search_business_indicator_box}>
-              <Text>주문 취소 금액</Text>
-              <Text>{cancelled}</Text>
+              <Text>주문 진행 금액</Text>
+              <Text> {ongoing}</Text>
             </div>
           </div>
           <div style={{ display: "flex" }}>
@@ -617,9 +588,8 @@ export default function OrderAdminGrid(props) {
               <RadioGroup defaultValue="1" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
-                  <Radio value="ongoing">주문진행</Radio>
                   <Radio value="confirmed">주문확정</Radio>
-                  <Radio value="cancelled">주문취소</Radio>
+                  <Radio value="ongoing">주문진행</Radio>
                 </Stack>
               </RadioGroup>
             </div>
@@ -671,6 +641,77 @@ export default function OrderAdminGrid(props) {
       </>
     );
   } else {
-    return <></>;
+    return (
+      <>
+        <div className={style.search_area_menu}>
+          <div className={style.search_business_box}>
+            <div className={style.search_business_indicator_box}>
+              <Text>주문 확정 금액</Text>
+              <Text>{confirmed}</Text>
+            </div>
+            <div className={style.search_business_indicator_box}>
+              <Text>주문 진행 금액</Text>
+              <Text> {ongoing}</Text>
+            </div>
+          </div>
+          <div style={{ display: "flex" }}>
+            <Box className="order-Header__box flex-center">
+              <Box className="order-Header__search">
+                <Select
+                  placeholder="선택"
+                  width="120px"
+                  onChange={onSelect}
+                  value={value}
+                >
+                  <option value="partnumber">부품번호</option>
+                  <option value="manufacturer">제조사</option>
+                </Select>
+                <Box className="order-Header__search__right">
+                  <WriteInput
+                    example="부품번호 및 제조사 등"
+                    writeEvent={searchText}
+                    writeValue={text}
+                  />
+                  <Btn text="조회" clickEvent={_handleSearch} />
+                </Box>
+              </Box>
+            </Box>
+            <div
+              className={style.search_radio_box}
+              style={{ padding: "27px 20px", height: "fit-content" }}
+            >
+              <RadioGroup defaultValue="1" onChange={handleRadio}>
+                <Stack direction="row">
+                  <Radio value="all">전체</Radio>
+                  <Radio value="confirmed">주문확정</Radio>
+                  <Radio value="ongoing">주문진행</Radio>
+                </Stack>
+              </RadioGroup>
+            </div>
+          </div>
+        </div>
+        <div className="mb-5 estimate-detail__body">
+          <div className={style.order_btns}>
+            <div className={style.order_btns_right}>
+              <div></div>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={confirmOrder}
+              >
+                주문확정
+              </Button>
+            </div>
+          </div>
+
+          <Grid
+            ref={ref}
+            columns={columns}
+            columnOptions={{ resizable: true }}
+            rowHeaders={[{ type: "checkbox", checked: false }]}
+          />
+        </div>
+      </>
+    );
   }
 }
