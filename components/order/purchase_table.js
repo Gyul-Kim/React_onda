@@ -207,7 +207,7 @@ export default function PurchaseAdminGrid(props) {
   // 데이터 로드
   const loadData = async (e) => {
     // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("token");
+    const token = await GetCookie("ondaPcToken");
     const tokenInfo = await decodeToken(token);
     const orderInfoId = tokenInfo.payload.it_maker;
 
@@ -233,7 +233,7 @@ export default function PurchaseAdminGrid(props) {
     const releaseRes = await axios.post(releaseMoneyURL, {
       headers: {
         "content-type": "application/json",
-        Authorization: `Bearer ${await GetCookie("token")}`,
+        Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
       },
     });
 
@@ -256,11 +256,11 @@ export default function PurchaseAdminGrid(props) {
     }
 
     // 견적완료 리스트
-    if (e == "ongoing") {
+    if (e == "complete") {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=placed`;
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=shipped`;
       const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
@@ -271,11 +271,11 @@ export default function PurchaseAdminGrid(props) {
     }
 
     // 견적 미완료 전체 리스트
-    if (e == "confirmed") {
+    if (e == "incomplete") {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=incomplete`;
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=confirmed,place`;
       const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
@@ -477,7 +477,7 @@ export default function PurchaseAdminGrid(props) {
   // 조회 버튼 클릭 시 이벤트
   const _handleSearch = async () => {
     // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("token");
+    const token = await GetCookie("ondaPcToken");
     const tokenInfo = await decodeToken(token);
     const orderInfoId = tokenInfo.payload.it_maker;
     try {
@@ -543,7 +543,7 @@ export default function PurchaseAdminGrid(props) {
     loadData(data);
   }, []);
 
-  if (data) {
+  if (data != "undefined") {
     return (
       <>
         <div className={style.search_area_menu}>
@@ -590,8 +590,8 @@ export default function PurchaseAdminGrid(props) {
               <RadioGroup defaultValue="1" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
-                  <Radio value="confirmed">매출총합</Radio>
-                  <Radio value="ongoing">진행 중인 매출</Radio>
+                  <Radio value="complete">매출총합</Radio>
+                  <Radio value="incomplete">진행 중인 매출</Radio>
                   <Radio value="cancelled">매출 취소</Radio>
                 </Stack>
               </RadioGroup>
@@ -633,6 +633,70 @@ export default function PurchaseAdminGrid(props) {
       </>
     );
   } else {
-    return <></>;
+    return (
+      <>
+        <div className={style.search_area_menu}>
+          <div className={style.search_business_box}>
+            <div className={style.search_business_indicator_box}>
+              <Text>진행 중인 매출</Text>
+              <Text> {released}</Text>
+            </div>
+            <div className={style.search_business_indicator_box}>
+              <Text>매출촐합(완료)</Text>
+              <Text>{inReleased}</Text>
+            </div>
+            <div className={style.search_business_indicator_box}>
+              <Text>취소 금액</Text>
+              <Text>{cancelled}</Text>
+            </div>
+          </div>
+          <div style={{ display: "flex" }}>
+            <Box className="order-Header__box flex-center">
+              <Box className="order-Header__search">
+                <Select
+                  placeholder="선택"
+                  width="120px"
+                  onChange={onSelect}
+                  value={value}
+                >
+                  <option value="partnumber">부품번호</option>
+                  <option value="manufacturer">제조사</option>
+                </Select>
+                <Box className="order-Header__search__right">
+                  <WriteInput
+                    example="부품번호 및 제조사 등"
+                    writeEvent={searchText}
+                    writeValue={text}
+                  />
+                  <Btn text="조회" clickEvent={_handleSearch} />
+                </Box>
+              </Box>
+            </Box>
+            <div
+              className={style.search_radio_box}
+              style={{ padding: "27px 20px", height: "fit-content" }}
+            >
+              <RadioGroup defaultValue="1" onChange={handleRadio}>
+                <Stack direction="row">
+                  <Radio value="all">전체</Radio>
+                  <Radio value="complete">매출총합</Radio>
+                  <Radio value="incomplete">진행 중인 매출</Radio>
+                  <Radio value="cancelled">매출 취소</Radio>
+                </Stack>
+              </RadioGroup>
+            </div>
+          </div>
+        </div>
+        <div className="mb-5 estimate-detail__body">
+          <div className={style.order_btns}></div>
+          <Grid
+            ref={ref}
+            columns={columns}
+            columnOptions={{ resizable: true }}
+            rowHeaders={[{ type: "checkbox", checked: false }]}
+          />
+        </div>
+      </>
+    );
   }
 }
