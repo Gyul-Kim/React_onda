@@ -199,7 +199,6 @@ export default function ReleaseAdminGrid(props) {
 
   const [released, setReleased] = useState("");
   const [inReleased, setInReleased] = useState("");
-  const [cancelled, setCancelled] = useState("");
 
   const [text, setText] = useState("");
   const [value, setValue] = useState("");
@@ -207,14 +206,14 @@ export default function ReleaseAdminGrid(props) {
   // 데이터 로드
   const loadData = async (e) => {
     // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("token");
+    const token = await GetCookie("ondaPcToken");
     const tokenInfo = await decodeToken(token);
     const orderInfoId = tokenInfo.payload.it_maker;
 
     let URL =
       process.env.ONDA_API_URL +
       "/api/order/partner/" +
-      `${orderInfoId}?offset=${perPage}&page=${page}`;
+      `${orderInfoId}?offset=${perPage}&page=${page}&type=confirmed,shipped`;
 
     const res = await axios.get(URL, {
       headers: {
@@ -233,19 +232,18 @@ export default function ReleaseAdminGrid(props) {
     const releaseRes = await axios.post(releaseMoneyURL, {
       headers: {
         "content-type": "application/json",
-        Authorization: `Bearer ${await GetCookie("token")}`,
+        Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
       },
     });
 
     setReleased(releaseRes.data.data.completeSum);
     setInReleased(releaseRes.data.data.onGoingSum);
-    setCancelled(releaseRes.data.data.cancecledSum);
 
     if (e == "all") {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=all`;
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=confirmed,shipped`;
       const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
@@ -255,27 +253,12 @@ export default function ReleaseAdminGrid(props) {
       setData(res.data.data);
     }
 
-    // 견적완료 리스트
-    if (e == "ongoing") {
-      let URL =
-        process.env.ONDA_API_URL +
-        "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=placed`;
-      const res = await axios.get(URL, {
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer` + token,
-        },
-      });
-      setData(res.data.data);
-    }
-
-    // 견적 미완료 전체 리스트
+    // 출고 전 (출고진행, 주문확정)
     if (e == "confirmed") {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=incomplete`;
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=confirmed`;
       const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
@@ -285,11 +268,12 @@ export default function ReleaseAdminGrid(props) {
       setData(res.data.data);
     }
 
-    if (e == "cancelled") {
+    // 출고 후 (출고완료)
+    if (e == "shipped") {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=cancelled`;
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=shipped`;
       const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
@@ -408,8 +392,8 @@ export default function ReleaseAdminGrid(props) {
     },
   ];
 
-  // 주문확정하기
-  const confirmOrder = async () => {
+  // 출고완료 확정하기
+  const shippedOrder = async () => {
     try {
       let rows = ref.current.getInstance().getCheckedRows();
 
@@ -418,34 +402,24 @@ export default function ReleaseAdminGrid(props) {
         return;
       }
 
-      let body = {};
-      for (let i = 0; i < rows.length; i++) {
-        body[i] = {
-          od_id: rows[i].od_id,
-          p_it_maker: rows[i].p_it_maker,
-          od_status: "confirmed",
-          price: rows[i].price,
-          panda_price: rows[i].panda_price,
-          manufacturer: rows[i].manufacturer,
-          partnumber: rows[i].partnumber,
-          quantity: rows[i].quantity,
-          dc: rows[i].dc,
-          p_es_id: rows[i].p_es_id,
-          leadtime: rows[i].leadtime,
-          packaging: rows[i].packaging,
-        };
+      let body = { orderLists: [] };
+      for (const row of rows) {
+        body.orderLists.push({
+          od_id: row.od_id,
+          od_status: "shipped",
+        });
       }
 
       let URL = process.env.ONDA_API_URL + "/api/order/partner/changeStatus";
 
-      const res = await axios.get(URL, body, {
+      const res = await axios.post(URL, body, {
         headers: {
           "content-type": "application/json",
         },
       });
 
-      if (res.status === 200) {
-        alert("주문확정이 완료되었습니다.");
+      if (res.status === 201) {
+        alert("출고완료가 완료되었습니다.");
         setTimeout(function () {
           location.reload();
         }, 1000);
@@ -477,7 +451,7 @@ export default function ReleaseAdminGrid(props) {
   // 조회 버튼 클릭 시 이벤트
   const _handleSearch = async () => {
     // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("token");
+    const token = await GetCookie("ondaPcToken");
     const tokenInfo = await decodeToken(token);
     const orderInfoId = tokenInfo.payload.it_maker;
     try {
@@ -525,7 +499,7 @@ export default function ReleaseAdminGrid(props) {
         let URL =
           process.env.ONDA_API_URL +
           "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&type=all`;
+          `${orderInfoId}?offset=${perPage}&page=${page}&type=confirmed,shipped`;
         const res = await axios.get(URL, {
           headers: {
             "content-type": "application/json",
@@ -543,7 +517,7 @@ export default function ReleaseAdminGrid(props) {
     loadData(data);
   }, []);
 
-  if (data) {
+  if (data !== "undefined") {
     return (
       <>
         <div className={style.search_area_menu}>
@@ -555,10 +529,6 @@ export default function ReleaseAdminGrid(props) {
             <div className={style.search_business_indicator_box}>
               <Text>출고 진행 금액</Text>
               <Text>{inReleased}</Text>
-            </div>
-            <div className={style.search_business_indicator_box}>
-              <Text>출고 취소 금액</Text>
-              <Text>{cancelled}</Text>
             </div>
           </div>
           <div style={{ display: "flex" }}>
@@ -590,9 +560,8 @@ export default function ReleaseAdminGrid(props) {
               <RadioGroup defaultValue="1" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
-                  <Radio value="confirmed">출고완료</Radio>
-                  <Radio value="ongoing">출고 진행</Radio>
-                  <Radio value="cancelled">출고 취소</Radio>
+                  <Radio value="shipped">출고완료</Radio>
+                  <Radio value="confirmed">출고 진행</Radio>
                 </Stack>
               </RadioGroup>
             </div>
@@ -605,7 +574,7 @@ export default function ReleaseAdminGrid(props) {
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
-                onClick={confirmOrder}
+                onClick={shippedOrder}
               >
                 출고완료
               </Button>
@@ -644,6 +613,76 @@ export default function ReleaseAdminGrid(props) {
       </>
     );
   } else {
-    return <></>;
+    return (
+      <>
+        <div className={style.search_area_menu}>
+          <div className={style.search_business_box}>
+            <div className={style.search_business_indicator_box}>
+              <Text>출고 완료 금액</Text>
+              <Text> {released}</Text>
+            </div>
+            <div className={style.search_business_indicator_box}>
+              <Text>출고 진행 금액</Text>
+              <Text>{inReleased}</Text>
+            </div>
+          </div>
+          <div style={{ display: "flex" }}>
+            <Box className="order-Header__box flex-center">
+              <Box className="order-Header__search">
+                <Select
+                  placeholder="선택"
+                  width="120px"
+                  onChange={onSelect}
+                  value={value}
+                >
+                  <option value="partnumber">부품번호</option>
+                  <option value="manufacturer">제조사</option>
+                </Select>
+                <Box className="order-Header__search__right">
+                  <WriteInput
+                    example="부품번호 및 제조사 등"
+                    writeEvent={searchText}
+                    writeValue={text}
+                  />
+                  <Btn text="조회" clickEvent={_handleSearch} />
+                </Box>
+              </Box>
+            </Box>
+            <div
+              className={style.search_radio_box}
+              style={{ padding: "27px 20px", height: "fit-content" }}
+            >
+              <RadioGroup defaultValue="1" onChange={handleRadio}>
+                <Stack direction="row">
+                  <Radio value="all">전체</Radio>
+                  <Radio value="shipped">출고완료</Radio>
+                  <Radio value="confirmed">출고 진행</Radio>
+                </Stack>
+              </RadioGroup>
+            </div>
+          </div>
+        </div>
+        <div className="mb-5 estimate-detail__body">
+          <div className={style.order_btns}>
+            <div className={style.order_btns_right}>
+              <div></div>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={shippedOrder}
+              >
+                출고완료
+              </Button>
+            </div>
+          </div>
+          <Grid
+            ref={ref}
+            columns={columns}
+            columnOptions={{ resizable: true }}
+            rowHeaders={[{ type: "checkbox", checked: false }]}
+          />
+        </div>
+      </>
+    );
   }
 }
