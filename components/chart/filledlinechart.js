@@ -1,11 +1,38 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Chart } from "chart.js";
+import { decodeToken } from "../../provider/auth";
+import { GetCookie } from "../../provider/common";
 import style from "../../styles/Home.module.css";
+const axios = require("axios").default;
 
 function FilledLineChart() {
+  const [data, setData] = useState(null);
+  const [annualData, setAnnualData] = useState(null);
+
   useEffect(() => {
+    const loadData = async () => {
+      const token = await GetCookie("ondaPcToken");
+      const tokenInfo = await decodeToken(token);
+      const orderInfoId = tokenInfo.payload.it_maker;
+
+      let dashboardURL =
+        process.env.ONDA_API_URL + "/api/dashboard/partner/" + orderInfoId;
+      const res = await axios.get(dashboardURL);
+      setData(Object.values(res.data.data.monthly_total_array[0]));
+      setAnnualData(Object.values(res.data.data.yearly_total_array[0]));
+    };
+
+    if (data === null) {
+      loadData();
+    }
+
+    if (annualData === null) {
+      loadData();
+    }
+
     var ctx = document.getElementById("monthLineChart").getContext("2d");
     var ctx2 = document.getElementById("annualLineChart").getContext("2d");
+
     var myChart = new Chart(ctx, {
       type: "line",
       data: {
@@ -25,31 +52,10 @@ function FilledLineChart() {
         ],
         datasets: [
           {
-            data: [86, 114, 106, 106, 107, 111, 133, 145, 122, 155, 180, 165],
+            data: data,
             label: "Hit",
             borderColor: "#3e95cd",
             backgroundColor: "#7bb6dd",
-            fill: false,
-          },
-          {
-            data: [70, 90, 44, 60, 83, 90, 100, 80, 70, 60, 120, 130, 109, 108],
-            label: "Progress",
-            borderColor: "#3cba9f",
-            backgroundColor: "#71d1bd",
-            fill: false,
-          },
-          // {
-          //   data: [10, 21, 60, 44, 17, 21, 17],
-          //   label: "Pending",
-          //   borderColor: "#ffa500",
-          //   backgroundColor: "#ffc04d",
-          //   fill: false,
-          // },
-          {
-            data: [6, 3, 2, 2, 7, 0, 16, 40, 50, 60, 30, 20, 10],
-            label: "Miss",
-            borderColor: "#c45850",
-            backgroundColor: "#d78f89",
             fill: false,
           },
         ],
@@ -82,31 +88,10 @@ function FilledLineChart() {
         labels: ["2020", "2021", "2022", "2023", "2024"],
         datasets: [
           {
-            data: [86, 114, 106, 106, 107],
-            label: "Applied",
-            borderColor: "#3e95cd",
-            backgroundColor: "#7bb6dd",
-            fill: false,
-          },
-          {
-            data: [70, 90, 44, 60, 83],
-            label: "Accepted",
+            data: annualData,
+            label: "Hit",
             borderColor: "#3cba9f",
             backgroundColor: "#71d1bd",
-            fill: false,
-          },
-          // {
-          //   data: [10, 21, 60, 44, 17, 21, 17],
-          //   label: "Pending",
-          //   borderColor: "#ffa500",
-          //   backgroundColor: "#ffc04d",
-          //   fill: false,
-          // },
-          {
-            data: [6, 3, 2, 2, 7],
-            label: "Rejected",
-            borderColor: "#c45850",
-            backgroundColor: "#d78f89",
             fill: false,
           },
         ],
@@ -132,7 +117,7 @@ function FilledLineChart() {
         },
       },
     });
-  }, []);
+  }, [data, annualData]);
 
   return (
     <>
