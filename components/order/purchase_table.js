@@ -40,7 +40,7 @@ TuiGrid.applyTheme("default", {
       background: "#fff",
     },
     normal: {
-      background: "#fff",
+      background: "#f6f6f6",
       showVerticalBorder: true,
       showHorizontalBorder: true,
     },
@@ -83,14 +83,7 @@ export class EstimateDataNumCustomRenderer {
     if (this.row.data_type === "parent") {
       element = <span>{this.props.value}</span>;
     } else {
-      element = (
-        <button
-          onClick={() => this.onClick()}
-          className="btn chakra-link chakra-button btn-primary font-11"
-        >
-          선택
-        </button>
-      );
+      element = this.props.rowKey + 1;
     }
     ReactDOM.render(element, this.el);
   }
@@ -206,97 +199,154 @@ export default function PurchaseAdminGrid(props) {
 
   // 데이터 로드
   const loadData = async (e) => {
-    // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("ondaPcToken");
-    const tokenInfo = await decodeToken(token);
-    const orderInfoId = tokenInfo.payload.it_maker;
+    try {
+      // 토큰 설정 -> 해당 유저 it_maker 값 필요
+      const token = await GetCookie("ondaPcToken");
+      const tokenInfo = await decodeToken(token);
+      const orderInfoId = tokenInfo.payload.it_maker;
 
-    let URL =
-      process.env.ONDA_API_URL +
-      "/api/order/partner/" +
-      `${orderInfoId}?offset=${perPage}&page=${page}`;
-
-    const res = await axios.get(URL, {
-      headers: {
-        "content-type": "application/json",
-        Authorization: `Bearer` + token,
-      },
-    });
-
-    setData(res.data.data);
-    setPerPage(perPage);
-    setTotal(res.data.data.length);
-
-    //견적 상황판 완료 및 미완료 금액 설정
-    const releaseMoneyURL =
-      process.env.ONDA_API_URL + "/api/order/partner/ReleaseSum";
-    const releaseRes = await axios.post(releaseMoneyURL, {
-      headers: {
-        "content-type": "application/json",
-        Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
-      },
-    });
-
-    setReleased(releaseRes.data.data.completeSum);
-    setInReleased(releaseRes.data.data.onGoingSum);
-    setCancelled(releaseRes.data.data.cancecledSum);
-
-    if (e == "all") {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=all`;
+        `${orderInfoId}?offset=${perPage}&page=${page}`;
       const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
           Authorization: `Bearer` + token,
         },
       });
-      setData(res.data.data);
-    }
 
-    // 견적완료 리스트
-    if (e == "complete") {
-      let URL =
+      setData(res.data.data);
+
+      setPerPage(perPage);
+
+      let countURL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=shipped`;
-      const res = await axios.get(URL, {
+        `${orderInfoId}/totalcount`;
+
+      const countRes = await axios.get(countURL, {
         headers: {
           "content-type": "application/json",
           Authorization: `Bearer` + token,
         },
       });
-      setData(res.data.data);
-    }
+      setTotal(countRes.data.data);
 
-    // 견적 미완료 전체 리스트
-    if (e == "incomplete") {
-      let URL =
-        process.env.ONDA_API_URL +
-        "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=confirmed,place`;
-      const res = await axios.get(URL, {
+      //견적 상황판 완료 및 미완료 금액 설정
+      const releaseMoneyURL =
+        process.env.ONDA_API_URL + "/api/order/partner/ReleaseSum";
+      let body = { it_maker: orderInfoId };
+
+      const releaseRes = await axios.post(releaseMoneyURL, body, {
         headers: {
           "content-type": "application/json",
-          Authorization: `Bearer` + token,
+          Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
         },
       });
-      setData(res.data.data);
-    }
 
-    if (e == "cancelled") {
-      let URL =
-        process.env.ONDA_API_URL +
-        "/api/order/partner/" +
-        `${orderInfoId}?offset=${perPage}&page=${page}&type=cancelled`;
-      const res = await axios.get(URL, {
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer` + token,
-        },
-      });
-      setData(res.data.data);
+      setReleased(releaseRes.data.data.completeSum);
+      setInReleased(releaseRes.data.data.onGoingSum);
+      setCancelled(releaseRes.data.data.cancecledSum);
+
+      if (e == "all") {
+        let URL =
+          process.env.ONDA_API_URL +
+          "/api/order/partner/" +
+          `${orderInfoId}?offset=${perPage}&page=${page}`;
+        const res = await axios.get(URL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+      }
+
+      // 견적완료 리스트
+      if (e == "complete") {
+        let URL =
+          process.env.ONDA_API_URL +
+          "/api/order/partner/" +
+          `${orderInfoId}?offset=${perPage}&page=${page}&type=shipped`;
+        const res = await axios.get(URL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+
+        let countURL =
+          process.env.ONDA_API_URL +
+          "/api/order/partner/" +
+          `${orderInfoId}/totalcount?status=shipped`;
+
+        const countRes = await axios.get(countURL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setTotal(countRes.data.data);
+      }
+
+      // 견적 미완료 전체 리스트
+      if (e == "incomplete") {
+        let URL =
+          process.env.ONDA_API_URL +
+          "/api/order/partner/" +
+          `${orderInfoId}?offset=${perPage}&page=${page}&type=placed,confirmed`;
+        const res = await axios.get(URL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+
+        let countURL =
+          process.env.ONDA_API_URL +
+          "/api/order/partner/" +
+          `${orderInfoId}/totalcount?status=placed,confirmed`;
+
+        const countRes = await axios.get(countURL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setTotal(countRes.data.data);
+      }
+
+      if (e == "cancelled") {
+        let URL =
+          process.env.ONDA_API_URL +
+          "/api/order/partner/" +
+          `${orderInfoId}?offset=${perPage}&page=${page}&type=cancelled`;
+        const res = await axios.get(URL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setData(res.data.data);
+
+        let countURL =
+          process.env.ONDA_API_URL +
+          "/api/order/partner/" +
+          `${orderInfoId}/totalcount?status=cancelled`;
+
+        const countRes = await axios.get(countURL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+        setTotal(countRes.data.data);
+      }
+    } catch (e) {
+      console.log(e);
     }
   };
 
@@ -330,7 +380,7 @@ export default function PurchaseAdminGrid(props) {
     },
     {
       header: "상태",
-      name: "od_status",
+      name: "state_kr",
       className: "font12 text-center",
       hidden: false,
       minWidth: 130,
@@ -344,7 +394,7 @@ export default function PurchaseAdminGrid(props) {
     },
     {
       header: "유통사",
-      name: "it_maker",
+      name: "name",
       className: "font12 text-center",
       hidden: false,
       minWidth: 60,
@@ -358,7 +408,7 @@ export default function PurchaseAdminGrid(props) {
     },
     {
       header: "견적가",
-      name: "panda_price",
+      name: "price",
       className: "font12 text-center",
       renderer: {
         type: EstimateCustomCommonRenderer,
@@ -406,56 +456,14 @@ export default function PurchaseAdminGrid(props) {
       hidden: false,
       minWidth: 70,
     },
+    {
+      header: "등록일",
+      name: "reg_date",
+      className: "font12",
+      hidden: false,
+      width: 90,
+    },
   ];
-
-  // 주문확정하기
-  const confirmOrder = async () => {
-    try {
-      let rows = ref.current.getInstance().getCheckedRows();
-
-      if (rows.length === 0) {
-        alert("주문 확정할 부품번호 선택은 필수입니다.");
-        return;
-      }
-
-      let body = {};
-      for (let i = 0; i < rows.length; i++) {
-        body[i] = {
-          od_id: rows[i].od_id,
-          p_it_maker: rows[i].p_it_maker,
-          od_status: "confirmed",
-          price: rows[i].price,
-          panda_price: rows[i].panda_price,
-          manufacturer: rows[i].manufacturer,
-          partnumber: rows[i].partnumber,
-          quantity: rows[i].quantity,
-          dc: rows[i].dc,
-          p_es_id: rows[i].p_es_id,
-          leadtime: rows[i].leadtime,
-          packaging: rows[i].packaging,
-        };
-      }
-
-      let URL = process.env.ONDA_API_URL + "/api/order/partner/changeStatus";
-
-      const res = await axios.get(URL, body, {
-        headers: {
-          "content-type": "application/json",
-        },
-      });
-
-      if (res.status === 200) {
-        alert("주문확정이 완료되었습니다.");
-        setTimeout(function () {
-          location.reload();
-        }, 1000);
-      } else {
-        alert("다시 시도해주세요");
-      }
-    } catch (e) {
-      console.log("err " + e);
-    }
-  };
 
   const handlePageChange = (page) => setPage(page);
 
@@ -541,7 +549,7 @@ export default function PurchaseAdminGrid(props) {
 
   useEffect(() => {
     loadData(data);
-  }, []);
+  }, [page]);
 
   if (data != "undefined") {
     return (
@@ -553,7 +561,7 @@ export default function PurchaseAdminGrid(props) {
               <Text> {released}</Text>
             </div>
             <div className={style.search_business_indicator_box}>
-              <Text>매출촐합(완료)</Text>
+              <Text>매출총합(완료)</Text>
               <Text>{inReleased}</Text>
             </div>
             <div className={style.search_business_indicator_box}>
@@ -587,7 +595,7 @@ export default function PurchaseAdminGrid(props) {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="1" onChange={handleRadio}>
+              <RadioGroup defaultValue="all" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="complete">매출총합</Radio>
@@ -642,7 +650,7 @@ export default function PurchaseAdminGrid(props) {
               <Text> {released}</Text>
             </div>
             <div className={style.search_business_indicator_box}>
-              <Text>매출촐합(완료)</Text>
+              <Text>매출총합(완료)</Text>
               <Text>{inReleased}</Text>
             </div>
             <div className={style.search_business_indicator_box}>
@@ -676,7 +684,7 @@ export default function PurchaseAdminGrid(props) {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="1" onChange={handleRadio}>
+              <RadioGroup defaultValue="all" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="complete">매출총합</Radio>
@@ -700,3 +708,4 @@ export default function PurchaseAdminGrid(props) {
     );
   }
 }
+
