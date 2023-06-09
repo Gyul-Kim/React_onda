@@ -40,7 +40,7 @@ TuiGrid.applyTheme("default", {
       background: "#fff",
     },
     normal: {
-      background: "#fff",
+      background: "#f6f6f6",
       showVerticalBorder: true,
       showHorizontalBorder: true,
     },
@@ -83,14 +83,7 @@ export class EstimateDataNumCustomRenderer {
     if (this.row.data_type === "parent") {
       element = <span>{this.props.value}</span>;
     } else {
-      element = (
-        <button
-          onClick={() => this.onClick()}
-          className="btn chakra-link chakra-button btn-primary font-11"
-        >
-          선택
-        </button>
-      );
+      element = this.props.rowKey + 1;
     }
     ReactDOM.render(element, this.el);
   }
@@ -220,7 +213,7 @@ export default function OrderAdminGrid(props) {
   const ref = useRef();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [total, setTotal] = useState(1);
+  const [total, setTotal] = useState();
   const [data, setData] = useState();
 
   const [confirmed, setConfirmed] = useState("");
@@ -248,10 +241,21 @@ export default function OrderAdminGrid(props) {
         Authorization: `Bearer` + token,
       },
     });
-
     setData(res.data.data);
+
+    let countURL =
+      process.env.ONDA_API_URL +
+      "/api/order/partner/" +
+      `${orderInfoId}/totalcount?status=placed,confirmed`;
+
+    const countRes = await axios.get(countURL, {
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer` + token,
+      },
+    });
+    setTotal(countRes.data.data);
     setPerPage(perPage);
-    setTotal(res.data.data.length);
 
     //견적 상황판 완료 및 미완료 금액 설정
     const orderMoneyURL = process.env.ONDA_API_URL + "/api/order/partner/sum";
@@ -292,6 +296,19 @@ export default function OrderAdminGrid(props) {
         },
       });
       setData(res.data.data);
+
+      let countURL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}/totalcount?status=placed`;
+
+      const countRes = await axios.get(countURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setTotal(countRes.data.data);
     }
 
     // 견적 미완료 전체 리스트
@@ -307,6 +324,19 @@ export default function OrderAdminGrid(props) {
         },
       });
       setData(res.data.data);
+
+      let countURL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}/totalcount?status=confirmed`;
+
+      const countRes = await axios.get(countURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setTotal(countRes.data.data);
     }
   };
 
@@ -340,7 +370,7 @@ export default function OrderAdminGrid(props) {
     },
     {
       header: "상태",
-      name: "od_status",
+      name: "state_kr",
       className: "font12 text-center",
       hidden: false,
       minWidth: 130,
@@ -354,7 +384,7 @@ export default function OrderAdminGrid(props) {
     },
     {
       header: "유통사",
-      name: "it_maker",
+      name: "name",
       className: "font12 text-center",
       hidden: false,
       minWidth: 60,
@@ -368,7 +398,7 @@ export default function OrderAdminGrid(props) {
     },
     {
       header: "견적가",
-      name: "panda_price",
+      name: "price",
       className: "font12 text-center",
       renderer: {
         type: EstimateCustomCommonRenderer,
@@ -378,6 +408,7 @@ export default function OrderAdminGrid(props) {
       },
       align: "center",
       width: 80,
+
       className: "font-12",
     },
 
@@ -416,6 +447,13 @@ export default function OrderAdminGrid(props) {
       hidden: false,
       minWidth: 70,
     },
+    {
+      header: "등록일",
+      name: "reg_date",
+      className: "font12",
+      hidden: false,
+      width: 90,
+    },
   ];
 
   // 주문확정하기
@@ -435,8 +473,6 @@ export default function OrderAdminGrid(props) {
           od_status: "confirmed",
         });
       }
-
-      console.log(JSON.stringify(body));
 
       let URL = process.env.ONDA_API_URL + "/api/order/partner/changeStatus";
 
@@ -543,7 +579,7 @@ export default function OrderAdminGrid(props) {
 
   useEffect(() => {
     loadData(data);
-  }, []);
+  }, [page]);
 
   if (data !== "undefined") {
     return (
@@ -585,7 +621,7 @@ export default function OrderAdminGrid(props) {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="1" onChange={handleRadio}>
+              <RadioGroup defaultValue="all" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="confirmed">주문확정</Radio>
@@ -680,7 +716,7 @@ export default function OrderAdminGrid(props) {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="1" onChange={handleRadio}>
+              <RadioGroup defaultValue="all" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="confirmed">주문확정</Radio>
@@ -715,3 +751,4 @@ export default function OrderAdminGrid(props) {
     );
   }
 }
+
