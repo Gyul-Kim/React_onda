@@ -9,6 +9,7 @@ import {
   Select,
 } from "@chakra-ui/react";
 import Grid from "@toast-ui/react-grid";
+import ReactDOM from "react-dom";
 import TuiGrid from "tui-grid";
 import { loadProgressBar } from "axios-progress-bar";
 import { decodeToken } from "../../provider/auth";
@@ -41,7 +42,7 @@ TuiGrid.applyTheme("default", {
       background: "#fff",
     },
     normal: {
-      background: "#fff",
+      background: "#f6f6f6",
       showVerticalBorder: true,
       showHorizontalBorder: true,
     },
@@ -51,6 +52,43 @@ TuiGrid.applyTheme("default", {
     },
   },
 });
+// 순번표시 렌더러
+export class EstimateDataNumCustomRenderer {
+  constructor(props) {
+    const rootDom = document.createElement("div");
+    const row = props.grid.getRow(props.rowKey);
+    rootDom.style.overflow = "hidden";
+    this.el = rootDom;
+    // set instance property for grid
+    this.grid = props.grid;
+    this.props = props;
+    this.row = row;
+    if (props.columnInfo.renderer.options) {
+      this.click = props.columnInfo.renderer.options.handler;
+    }
+    this.render(props);
+  }
+
+  getElement() {
+    return this.el;
+  }
+
+  onClick() {
+    if (this.click) {
+      this.click(this.props);
+    }
+  }
+
+  render() {
+    let element;
+    if (this.row.data_type === "parent") {
+      element = <span>{this.props.value}</span>;
+    } else {
+      element = this.props.rowKey + 1;
+    }
+    ReactDOM.render(element, this.el);
+  }
+}
 
 export class EstimateCustomCommonRenderer {
   constructor(props) {
@@ -99,6 +137,36 @@ export class EstimateCustomCommonRenderer {
   }
 }
 
+async function downloadFile() {
+  // 토큰 설정 -> 해당 유저 it_maker 값 필요
+  const token = await GetCookie("ondaPcToken");
+  const tokenInfo = await decodeToken(token);
+  const mbid = tokenInfo.payload.it_maker;
+
+  let reqUrl =
+    process.env.ONDA_API_URL +
+    "/api/quotation/download_quotation_xls?mbid=" +
+    mbid +
+    "&type=all";
+  let fileName = "ondaparts_quotation_status.xlsx";
+
+  fetch(reqUrl)
+    .then((resp) => resp.blob())
+    .then((blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      // the filename you want
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      alert("문서가 다운로드가 완료되었습니다.");
+    })
+    .catch(() => alert("다운로드 에러"));
+}
+
 // 견적서 tui grid
 export default function QuotationConditionsTable() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -106,8 +174,8 @@ export default function QuotationConditionsTable() {
   const ref = useRef();
   const [data, setData] = useState();
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(5);
-  const [total, setTotal] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [total, setTotal] = useState();
   const [completion, setCompletion] = useState("");
   const [incompletion, setInCompletion] = useState("");
   const [text, setText] = useState("");
@@ -118,7 +186,7 @@ export default function QuotationConditionsTable() {
   const loadData = async (e) => {
     try {
       // 토큰 설정 -> 해당 유저 it_maker 값 필요
-      const token = await GetCookie("token");
+      const token = await GetCookie("ondaPcToken");
       const tokenInfo = await decodeToken(token);
       const quotationInfoId = tokenInfo.payload.it_maker;
 
@@ -186,6 +254,20 @@ export default function QuotationConditionsTable() {
           },
         });
         setData(res.data.data);
+
+        let countURL =
+          process.env.ONDA_API_URL +
+          "/api/quotation/id/detail/onlycount/" +
+          `${quotationInfoId}?status=complete`;
+
+        const count = await axios.get(countURL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+
+        setTotal(count.data.data);
       }
 
       // 견적 미완료 전체 리스트
@@ -201,6 +283,20 @@ export default function QuotationConditionsTable() {
           },
         });
         setData(res.data.data);
+
+        let countURL =
+          process.env.ONDA_API_URL +
+          "/api/quotation/id/detail/onlycount/" +
+          `${quotationInfoId}?status=incomplete`;
+
+        const count = await axios.get(countURL, {
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer` + token,
+          },
+        });
+
+        setTotal(count.data.data);
       }
 
       //견적 상황판 완료 및 미완료 금액 설정
@@ -210,7 +306,7 @@ export default function QuotationConditionsTable() {
       const quotationRes = await axios.post(quotationMoneyURL, body, {
         headers: {
           "content-type": "application/json",
-          Authorization: `Bearer ${await GetCookie("token")}`,
+          Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
         },
       });
 
@@ -228,6 +324,9 @@ export default function QuotationConditionsTable() {
       name: "data_num",
       width: 30,
       className: "font12 text-center",
+      renderer: {
+        type: EstimateDataNumCustomRenderer,
+      },
     },
     {
       header: "견적번호",
@@ -248,7 +347,7 @@ export default function QuotationConditionsTable() {
     },
     {
       header: "상태",
-      name: "es_state",
+      name: "state_kr",
       className: "font12 text-center",
       hidden: false,
       width: 70,
@@ -262,7 +361,7 @@ export default function QuotationConditionsTable() {
     },
     {
       header: "유통사",
-      name: "mb_id",
+      name: "name",
       className: "font12 text-center",
       hidden: false,
       minWidth: 70,
@@ -286,7 +385,7 @@ export default function QuotationConditionsTable() {
 
     {
       header: "합계",
-      name: "quantity",
+      name: "quotation_sum",
       hidden: false,
       align: "center",
 
@@ -314,6 +413,13 @@ export default function QuotationConditionsTable() {
       hidden: false,
       minWidth: 70,
     },
+    {
+      header: "등록일",
+      name: "reg_date",
+      className: "font12",
+      hidden: false,
+      width: 90,
+    },
   ];
 
   // 엑셀 업로드 및 다운로드 [준비 중] 팝업 띄우기
@@ -339,7 +445,7 @@ export default function QuotationConditionsTable() {
   // 조회 버튼 클릭 시 이벤트
   const _handleSearch = async () => {
     // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("token");
+    const token = await GetCookie("ondaPcToken");
     const tokenInfo = await decodeToken(token);
     const quotationInfoId = tokenInfo.payload.it_maker;
     try {
@@ -446,7 +552,7 @@ export default function QuotationConditionsTable() {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="1" onChange={handleRadio}>
+              <RadioGroup defaultValue="all" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="complete">견적완료</Radio>
@@ -463,7 +569,7 @@ export default function QuotationConditionsTable() {
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
-                onClick={handleAlert}
+                onClick={downloadFile}
               >
                 엑셀 다운로드
               </Button>
@@ -535,7 +641,7 @@ export default function QuotationConditionsTable() {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="1" onChange={handleRadio}>
+              <RadioGroup defaultValue="all" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="complete">견적완료</Radio>
@@ -552,7 +658,7 @@ export default function QuotationConditionsTable() {
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
-                onClick={handleAlert}
+                onClick={downloadFile}
               >
                 엑셀 다운로드
               </Button>
