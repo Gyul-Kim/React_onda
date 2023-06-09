@@ -40,7 +40,7 @@ TuiGrid.applyTheme("default", {
       background: "#fff",
     },
     normal: {
-      background: "#fff",
+      background: "#f6f6f6",
       showVerticalBorder: true,
       showHorizontalBorder: true,
     },
@@ -83,14 +83,7 @@ export class EstimateDataNumCustomRenderer {
     if (this.row.data_type === "parent") {
       element = <span>{this.props.value}</span>;
     } else {
-      element = (
-        <button
-          onClick={() => this.onClick()}
-          className="btn chakra-link chakra-button btn-primary font-11"
-        >
-          선택
-        </button>
-      );
+      element = this.props.rowKey + 1;
     }
     ReactDOM.render(element, this.el);
   }
@@ -194,7 +187,7 @@ export default function ReleaseAdminGrid(props) {
   const ref = useRef();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [total, setTotal] = useState(1);
+  const [total, setTotal] = useState();
   const [data, setData] = useState();
 
   const [released, setReleased] = useState("");
@@ -224,12 +217,26 @@ export default function ReleaseAdminGrid(props) {
 
     setData(res.data.data);
     setPerPage(perPage);
-    setTotal(res.data.data.length);
+
+    let countURL =
+      process.env.ONDA_API_URL +
+      "/api/order/partner/" +
+      `${orderInfoId}/totalcount?status=confirmed,shipped`;
+
+    const countRes = await axios.get(countURL, {
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer` + token,
+      },
+    });
+    setTotal(countRes.data.data);
 
     //견적 상황판 완료 및 미완료 금액 설정
     const releaseMoneyURL =
       process.env.ONDA_API_URL + "/api/order/partner/ReleaseSum";
-    const releaseRes = await axios.post(releaseMoneyURL, {
+    let body = { it_maker: orderInfoId };
+
+    const releaseRes = await axios.post(releaseMoneyURL, body, {
       headers: {
         "content-type": "application/json",
         Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
@@ -266,6 +273,19 @@ export default function ReleaseAdminGrid(props) {
         },
       });
       setData(res.data.data);
+
+      let countURL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}/totalcount?status=confirmed`;
+
+      const countRes = await axios.get(countURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setTotal(countRes.data.data);
     }
 
     // 출고 후 (출고완료)
@@ -281,6 +301,19 @@ export default function ReleaseAdminGrid(props) {
         },
       });
       setData(res.data.data);
+
+      let countURL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}/totalcount?status=shipped`;
+
+      const countRes = await axios.get(countURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setTotal(countRes.data.data);
     }
   };
 
@@ -314,7 +347,7 @@ export default function ReleaseAdminGrid(props) {
     },
     {
       header: "상태",
-      name: "od_status",
+      name: "state_kr",
       className: "font12 text-center",
       hidden: false,
       minWidth: 130,
@@ -328,7 +361,7 @@ export default function ReleaseAdminGrid(props) {
     },
     {
       header: "유통사",
-      name: "it_maker",
+      name: "name",
       className: "font12 text-center",
       hidden: false,
       minWidth: 60,
@@ -342,7 +375,7 @@ export default function ReleaseAdminGrid(props) {
     },
     {
       header: "견적가",
-      name: "panda_price",
+      name: "price",
       className: "font12 text-center",
       renderer: {
         type: EstimateCustomCommonRenderer,
@@ -389,6 +422,13 @@ export default function ReleaseAdminGrid(props) {
       className: "font12 text-center",
       hidden: false,
       minWidth: 70,
+    },
+    {
+      header: "등록일",
+      name: "reg_date",
+      className: "font12",
+      hidden: false,
+      width: 90,
     },
   ];
 
@@ -515,7 +555,7 @@ export default function ReleaseAdminGrid(props) {
 
   useEffect(() => {
     loadData(data);
-  }, []);
+  }, [page]);
 
   if (data !== "undefined") {
     return (
@@ -557,7 +597,7 @@ export default function ReleaseAdminGrid(props) {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="1" onChange={handleRadio}>
+              <RadioGroup defaultValue="all" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="shipped">출고완료</Radio>
@@ -652,7 +692,7 @@ export default function ReleaseAdminGrid(props) {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="1" onChange={handleRadio}>
+              <RadioGroup defaultValue="all" onChange={handleRadio}>
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="shipped">출고완료</Radio>
@@ -686,3 +726,4 @@ export default function ReleaseAdminGrid(props) {
     );
   }
 }
+
