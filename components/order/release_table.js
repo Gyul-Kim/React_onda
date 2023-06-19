@@ -15,6 +15,7 @@ import { loadProgressBar } from "axios-progress-bar";
 import { decodeToken } from "../../provider/auth";
 import { GetCookie } from "../../provider/common";
 
+import { useRouter } from "next/router";
 import style from "../../styles/Home.module.css";
 import Btn from "../common/btn";
 import Pagination from "react-js-pagination";
@@ -187,7 +188,7 @@ export default function ReleaseAdminGrid(props) {
   const ref = useRef();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [total, setTotal] = useState();
+  const [total, setTotal] = useState(null);
   const [data, setData] = useState();
 
   const [released, setReleased] = useState("");
@@ -195,9 +196,11 @@ export default function ReleaseAdminGrid(props) {
 
   const [text, setText] = useState("");
   const [value, setValue] = useState("");
+  const [checkBox, setCheckBox] = useState("confirmed,shipped");
+  const router = useRouter();
 
   // 데이터 로드
-  const loadData = async (e) => {
+  const loadData = async () => {
     // 토큰 설정 -> 해당 유저 it_maker 값 필요
     const token = await GetCookie("ondaPcToken");
     const tokenInfo = await decodeToken(token);
@@ -215,21 +218,68 @@ export default function ReleaseAdminGrid(props) {
       },
     });
 
+    const word = window.location.search.split("&type=");
+    let e = word[1];
+
     setData(res.data.data);
     setPerPage(perPage);
 
-    let countURL =
-      process.env.ONDA_API_URL +
-      "/api/order/partner/" +
-      `${orderInfoId}/totalcount?status=confirmed,shipped`;
+    // 검색어와 부품번호 및 제조사 선택 했을 때
+    if (text && value) {
+      let searchURL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}&type=confirmed,shipped`;
+      const res = await axios.get(searchURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
 
-    const countRes = await axios.get(countURL, {
-      headers: {
-        "content-type": "application/json",
-        Authorization: `Bearer` + token,
-      },
-    });
-    setTotal(countRes.data.data);
+      // 검색조건에 맞는 데이터가 있을 때
+      if (res.data.data.length > 0) {
+        setData(res.data.data);
+      }
+      // 검색조건에 맞는 데이터가 없을 때
+      if (res.data.data == 0) {
+        setData("undefined");
+      }
+
+      setTotal(res.data.data_length);
+    }
+
+    // 부품번호 및 제조서 미선택
+    // or 검색어 비어 있을 때.
+    if (
+      text === null ||
+      text === " " ||
+      text === "" ||
+      text === "undefined" ||
+      value === null ||
+      value === " " ||
+      value === "" ||
+      value === "undefined"
+    ) {
+      // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
+      if (text && value === "") {
+        alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
+        return;
+      }
+
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=confirmed,shipped`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setTotal(res.data.data_length);
+      setData(res.data.data);
+    }
 
     //견적 상황판 완료 및 미완료 금액 설정
     const releaseMoneyURL =
@@ -246,7 +296,7 @@ export default function ReleaseAdminGrid(props) {
     setReleased(releaseRes.data.data.completeSum);
     setInReleased(releaseRes.data.data.onGoingSum);
 
-    if (e == "all") {
+    if (e == "confirmed,shipped") {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
@@ -257,6 +307,7 @@ export default function ReleaseAdminGrid(props) {
           Authorization: `Bearer` + token,
         },
       });
+      setTotal(res.data.data_length);
       setData(res.data.data);
     }
 
@@ -272,20 +323,12 @@ export default function ReleaseAdminGrid(props) {
           Authorization: `Bearer` + token,
         },
       });
+      if (Math.ceil(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
+      }
+      setTotal(res.data.data_length);
       setData(res.data.data);
-
-      let countURL =
-        process.env.ONDA_API_URL +
-        "/api/order/partner/" +
-        `${orderInfoId}/totalcount?status=confirmed`;
-
-      const countRes = await axios.get(countURL, {
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer` + token,
-        },
-      });
-      setTotal(countRes.data.data);
     }
 
     // 출고 후 (출고완료)
@@ -300,20 +343,12 @@ export default function ReleaseAdminGrid(props) {
           Authorization: `Bearer` + token,
         },
       });
+      if (Math.ceil(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
+      }
+      setTotal(res.data.data_length);
       setData(res.data.data);
-
-      let countURL =
-        process.env.ONDA_API_URL +
-        "/api/order/partner/" +
-        `${orderInfoId}/totalcount?status=shipped`;
-
-      const countRes = await axios.get(countURL, {
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer` + token,
-        },
-      });
-      setTotal(countRes.data.data);
     }
   };
 
@@ -330,8 +365,8 @@ export default function ReleaseAdminGrid(props) {
       filter: "select",
     },
     {
-      header: "견적번호",
-      name: "od_id",
+      header: "주문번호",
+      name: "od_id_o_od_id",
       className: "font12 text-center",
       width: 80,
       hidden: false,
@@ -403,7 +438,7 @@ export default function ReleaseAdminGrid(props) {
       filter: "select",
     },
     {
-      header: "제조일(D/C)",
+      header: "제조년(D/C)",
       name: "dc",
       className: "font12 text-center",
       hidden: false,
@@ -425,7 +460,7 @@ export default function ReleaseAdminGrid(props) {
     },
     {
       header: "등록일",
-      name: "reg_date",
+      name: "CREATE_DATE",
       className: "font12",
       hidden: false,
       width: 90,
@@ -459,12 +494,12 @@ export default function ReleaseAdminGrid(props) {
       });
 
       if (res.status === 201) {
-        alert("출고완료가 완료되었습니다.");
+        alert("출고가 완료되었습니다.");
         setTimeout(function () {
           location.reload();
         }, 1000);
       } else {
-        alert("다시 시도해주세요");
+        alert(res.data.msg);
       }
     } catch (e) {
       console.log("err " + e);
@@ -476,6 +511,13 @@ export default function ReleaseAdminGrid(props) {
   // radio box 클릭 이벤트
   const handleRadio = async (e) => {
     loadData(e);
+    router.push(
+      `/order/release_admin?offset=${perPage}&Page=${page}&type=${e}`
+    );
+
+    setText("");
+    setValue("");
+    setCheckBox(e);
   };
 
   // select 박스 부풒번호 및 제조사 선택칸
@@ -490,64 +532,18 @@ export default function ReleaseAdminGrid(props) {
 
   // 조회 버튼 클릭 시 이벤트
   const _handleSearch = async () => {
-    // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("ondaPcToken");
-    const tokenInfo = await decodeToken(token);
-    const orderInfoId = tokenInfo.payload.it_maker;
+    loadData();
+    router.push(
+      `/order/release_admin?offset=${perPage}&Page=${page}&search=${value}&name=${text}`
+    );
+    setPage(1);
+    setCheckBox("");
+  };
+
+  //갱신
+  const reLoadData = async (e) => {
     try {
-      // 검색어와 부품번호 및 제조사 선택 했을 때
-      if (text && value) {
-        let searchURL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}`;
-        const res = await axios.get(searchURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-
-        // 검색조건에 맞는 데이터가 있을 때
-        if (res.data.data.length > 0) {
-          setData(res.data.data);
-        }
-        // 검색조건에 맞는 데이터가 없을 때
-        if (res.data.data == 0) {
-          setData("undefined");
-        }
-      }
-
-      // 부품번호 및 제조서 미선택
-      // or 검색어 비어 있을 때.
-      if (
-        text === null ||
-        text === " " ||
-        text === "" ||
-        text === "undefined" ||
-        value === null ||
-        value === " " ||
-        value === "" ||
-        value === "undefined"
-      ) {
-        // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
-        if (text && value === "") {
-          alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
-          return;
-        }
-
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&type=confirmed,shipped`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-      }
+      loadData(e);
     } catch (e) {
       console.log("err " + e);
     }
@@ -597,9 +593,13 @@ export default function ReleaseAdminGrid(props) {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="all" onChange={handleRadio}>
+              <RadioGroup
+                defaultValue="all"
+                onChange={handleRadio}
+                value={checkBox}
+              >
                 <Stack direction="row">
-                  <Radio value="all">전체</Radio>
+                  <Radio value="confirmed,shipped">전체</Radio>
                   <Radio value="shipped">출고완료</Radio>
                   <Radio value="confirmed">출고 진행</Radio>
                 </Stack>
@@ -611,6 +611,13 @@ export default function ReleaseAdminGrid(props) {
           <div className={style.order_btns}>
             <div className={style.order_btns_right}>
               <div></div>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={reLoadData}
+              >
+                갱신
+              </Button>
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
@@ -709,6 +716,13 @@ export default function ReleaseAdminGrid(props) {
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
+                onClick={reLoadData}
+              >
+                갱신
+              </Button>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
                 onClick={shippedOrder}
               >
                 출고완료
@@ -726,4 +740,3 @@ export default function ReleaseAdminGrid(props) {
     );
   }
 }
-
