@@ -15,6 +15,7 @@ import { loadProgressBar } from "axios-progress-bar";
 import { decodeToken } from "../../provider/auth";
 import style from "../../styles/Home.module.css";
 
+import { useRouter } from "next/router";
 import Pagination from "react-js-pagination";
 import WriteInput from "../common/writeInput";
 import Btn from "../common/btn";
@@ -89,7 +90,6 @@ export class EstimateDataNumCustomRenderer {
     ReactDOM.render(element, this.el);
   }
 }
-
 export class EstimateCustomCommonRenderer {
   constructor(props) {
     this.el = document.createElement("span");
@@ -166,37 +166,112 @@ async function downloadFile() {
     })
     .catch(() => alert("다운로드 에러"));
 }
-
 // 견적서 tui grid
-export default function QuotationConditionsTable() {
+export default function QuotationConditionsTable(e) {
   const urlParams = new URLSearchParams(window.location.search);
   loadProgressBar();
   const ref = useRef();
   const [data, setData] = useState();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [total, setTotal] = useState();
+  const [total, setTotal] = useState(null);
   const [completion, setCompletion] = useState("");
   const [incompletion, setInCompletion] = useState("");
   const [text, setText] = useState("");
-
   const [value, setValue] = useState("");
+  const [checkBox, setCheckBox] = useState("all");
+  const router = useRouter();
 
-  // 데이터 로드
-  const loadData = async (e) => {
-    try {
-      // 토큰 설정 -> 해당 유저 it_maker 값 필요
-      const token = await GetCookie("ondaPcToken");
-      const tokenInfo = await decodeToken(token);
-      const quotationInfoId = tokenInfo.payload.it_maker;
+  const loadData = async () => {
+    const token = await GetCookie("ondaPcToken");
+    const tokenInfo = await decodeToken(token);
+    const quotationInfoId = tokenInfo.payload.it_maker;
 
-      // 온다파츠 견적 회신 리스트(총 데이터)
-      // 처음 reload될 때 보여지는 화면
+    // 온다파츠 견적 회신 리스트(총 데이터)
+    // 처음 reload될 때 보여지는 화면
+    let URL =
+      process.env.ONDA_API_URL +
+      "/api/quotation/id/detail/count/" +
+      `${quotationInfoId}?offset=${perPage}&page=${page}`;
+
+    const res = await axios.get(URL, {
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer` + token,
+      },
+    });
+
+    const word = window.location.search.split("&type=");
+    let e = word[1];
+
+    // 견적완료 및 미완료 radio bo의 data를 보여주기 위해선
+    // 첫 화면 setData의 위치를 불가피하게 맨 위로 보내게 됨
+    setData(res.data.data);
+    setPerPage(perPage);
+
+    if (text && value) {
+      let searchURL =
+        process.env.ONDA_API_URL +
+        "/api/quotation/id/detail/count/" +
+        `${quotationInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}&type=all`;
+      const res = await axios.get(searchURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+
+      // 검색조건에 맞는 데이터가 있을 때
+      if (res.data.data.length > 0) {
+        setData(res.data.data);
+      }
+      // 검색조건에 맞는 데이터가 없을 때
+      if (res.data.data == 0) {
+        setData("undefined");
+      }
+
+      setTotal(res.data.data_length);
+    }
+
+    //부품번호 및 제조서 미선택
+    //or 검색어 비어 있을 때.
+    if (
+      text === null ||
+      text === " " ||
+      text === "" ||
+      text === "undefined" ||
+      value === null ||
+      value === " " ||
+      value === "" ||
+      value === "undefined"
+    ) {
+      // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
+      if (text && value === "") {
+        alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
+        setText("");
+        return;
+      }
+
       let URL =
         process.env.ONDA_API_URL +
         "/api/quotation/id/detail/count/" +
-        `${quotationInfoId}?offset=${perPage}&page=${page}`;
+        `${quotationInfoId}?offset=${perPage}&page=${page}&type=all`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setData(res.data.data);
+    }
 
+    // 견적 완료 및 미완료 radio box 누를 때의 견적 회신 리스트
+    // 견적 완료 및 미완료 전체 리스트
+    if (e == "all") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/quotation/id/detail/count/" +
+        `${quotationInfoId}?offset=${perPage}&page=${page}&type=all`;
       const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
@@ -204,117 +279,72 @@ export default function QuotationConditionsTable() {
         },
       });
 
-      // 견적완료 및 미완료 radio bo의 data를 보여주기 위해선
-      // 첫 화면 setData의 위치를 불가피하게 맨 위로 보내게 됨
+      if (Math.round(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
+      }
+
+      setPage(page);
+      setTotal(res.data.data_length);
       setData(res.data.data);
+    }
 
-      // 온다파츠 견적 회신 리스트(총 개수)
-      let countURL =
+    // 견적완료 리스트
+    if (e == "complete") {
+      let URL =
         process.env.ONDA_API_URL +
-        "/api/quotation/id/detail/onlycount/" +
-        `${quotationInfoId}`;
-
-      const count = await axios.get(countURL, {
+        "/api/quotation/id/detail/count/" +
+        `${quotationInfoId}?offset=${perPage}&page=${page}&type=complete`;
+      const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
           Authorization: `Bearer` + token,
         },
       });
 
-      // 한 페이지 당 보여지는 데어터 개수 및 전체 데이터 개수 뿌리기
-      setPerPage(perPage);
-      setTotal(count.data.data);
-
-      // 견적 완료 및 미완료 radio box 누를 때의 견적 회신 리스트
-      // 견적 완료 및 미완료 전체 리스트
-      if (e == "all") {
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/quotation/id/detail/count/" +
-          `${quotationInfoId}?offset=${perPage}&page=${page}&type=all`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
+      // 다른 조건의 페이지네이션에서 없는 페이지인 상태로 해당 조건 전환할 때,
+      // ex) 전체 설정 5페이 -> 견적 완료인 상태로 5페이지로 이동 but, 견적 완료에서 5페이지가 없다
+      // 강제로 페이지 1로 보냄
+      if (Math.ceil(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
       }
+      setTotal(res.data.data_length);
+      setData(res.data.data);
+    }
 
-      // 견적완료 리스트
-      if (e == "complete") {
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/quotation/id/detail/count/" +
-          `${quotationInfoId}?offset=${perPage}&page=${page}&type=complete`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-
-        let countURL =
-          process.env.ONDA_API_URL +
-          "/api/quotation/id/detail/onlycount/" +
-          `${quotationInfoId}?status=complete`;
-
-        const count = await axios.get(countURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-
-        setTotal(count.data.data);
-      }
-
-      // 견적 미완료 전체 리스트
-      if (e == "incomplete") {
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/quotation/id/detail/count/" +
-          `${quotationInfoId}?offset=${perPage}&page=${page}&type=incomplete`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-
-        let countURL =
-          process.env.ONDA_API_URL +
-          "/api/quotation/id/detail/onlycount/" +
-          `${quotationInfoId}?status=incomplete`;
-
-        const count = await axios.get(countURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-
-        setTotal(count.data.data);
-      }
-
-      //견적 상황판 완료 및 미완료 금액 설정
-      const quotationMoneyURL =
-        process.env.ONDA_API_URL + "/api/quotation/partner/sum";
-      let body = { it_maker: quotationInfoId };
-      const quotationRes = await axios.post(quotationMoneyURL, body, {
+    // 견적 미완료 전체 리스트
+    if (e == "incomplete") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/quotation/id/detail/count/" +
+        `${quotationInfoId}?offset=${perPage}&page=${page}&type=incomplete`;
+      const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
-          Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
+          Authorization: `Bearer` + token,
         },
       });
-
-      setInCompletion(quotationRes.data.data.incompleteSum);
-      setCompletion(quotationRes.data.data.completeSum);
-    } catch (e) {
-      console.log("err" + e);
+      if (Math.ceil(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
+      }
+      setTotal(res.data.data_length);
+      setData(res.data.data);
     }
+
+    //견적 상황판 완료 및 미완료 금액 설정
+    const quotationMoneyURL =
+      process.env.ONDA_API_URL + "/api/quotation/partner/sum";
+    let body = { it_maker: quotationInfoId };
+    const quotationRes = await axios.post(quotationMoneyURL, body, {
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
+      },
+    });
+    setInCompletion(quotationRes.data.data.incompleteSum);
+    setCompletion(quotationRes.data.data.completeSum);
   };
 
   // 컬럼 설정
@@ -393,7 +423,7 @@ export default function QuotationConditionsTable() {
       filter: "select",
     },
     {
-      header: "제조일(D/C)",
+      header: "제조년(D/C)",
       name: "dc",
       className: "font12 text-center",
       hidden: false,
@@ -415,21 +445,33 @@ export default function QuotationConditionsTable() {
     },
     {
       header: "등록일",
-      name: "reg_date",
+      name: "CREATE_DATE",
       className: "font12",
       hidden: false,
       width: 90,
     },
   ];
 
-  // 엑셀 업로드 및 다운로드 [준비 중] 팝업 띄우기
-  const handleAlert = () => alert("준비 중입니다.");
   // 전체 페이지 설정
-  const handlePageChange = (page) => setPage(page);
+  const handlePageChange = (page) => {
+    setPage(page);
+    // const word = window.location.search.split("&type=");
+    // let e = word[1];
+    // console.log("out " + page);
+    // router.push(
+    //   `/quotation/quotation_conditions?offset=${perPage}&Page=${page}&type=${e}`
+    // );
+  };
 
   // radio box 클릭 이벤트
   const handleRadio = async (e) => {
     loadData(e);
+    router.push(
+      `/quotation/quotation_conditions?offset=${perPage}&Page=${page}&type=${e}`
+    );
+    setText("");
+    setValue("");
+    setCheckBox(e);
   };
 
   // select 박스 부풒번호 및 제조사 선택칸
@@ -444,70 +486,49 @@ export default function QuotationConditionsTable() {
 
   // 조회 버튼 클릭 시 이벤트
   const _handleSearch = async () => {
-    // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("ondaPcToken");
-    const tokenInfo = await decodeToken(token);
-    const quotationInfoId = tokenInfo.payload.it_maker;
+    loadData();
+    router.push(
+      `/quotation/quotation_conditions?offset=${perPage}&Page=${page}&search=${value}&name=${text}`
+    );
+    setPage(1);
+    setCheckBox("all");
+  };
+
+  //갱신
+  const reLoadData = async (e) => {
     try {
-      // 검색어와 부품번호 및 제조사 선택 했을 때
-      if (text && value) {
-        let searchURL =
-          process.env.ONDA_API_URL +
-          "/api/quotation/id/detail/count/" +
-          `${quotationInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}`;
-        const res = await axios.get(searchURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-
-        // 검색조건에 맞는 데이터가 있을 때
-        if (res.data.data.length > 0) {
-          setData(res.data.data);
-        }
-        // 검색조건에 맞는 데이터가 없을 때
-        if (res.data.data == 0) {
-          setData("undefined");
-        }
-      }
-
-      // 부품번호 및 제조서 미선택
-      // or 검색어 비어 있을 때.
-      if (
-        text === null ||
-        text === " " ||
-        text === "" ||
-        text === "undefined" ||
-        value === null ||
-        value === " " ||
-        value === "" ||
-        value === "undefined"
-      ) {
-        // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
-        if (text && value === "") {
-          alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
-          return;
-        }
-
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/quotation/id/detail/count/" +
-          `${quotationInfoId}?offset=${perPage}&page=${page}&type=all`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-      }
+      loadData(e);
     } catch (e) {
       console.log("err " + e);
     }
   };
 
   useEffect(() => {
+    // 데이터 로드 (가장 처음 화면 구성)
+    const loadDataFirst = async () => {
+      const token = await GetCookie("ondaPcToken");
+      const tokenInfo = await decodeToken(token);
+      const quotationInfoId = tokenInfo.payload.it_maker;
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/quotation/id/detail/count/" +
+        `${quotationInfoId}?offset=${perPage}&page=${page}`;
+
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+
+      setData(res.data.data);
+      setTotal(res.data.data_length);
+    };
+
+    if (total === null) {
+      loadDataFirst();
+    }
+
     loadData();
   }, [page]);
 
@@ -552,7 +573,11 @@ export default function QuotationConditionsTable() {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="all" onChange={handleRadio}>
+              <RadioGroup
+                defaultValue="all"
+                onChange={handleRadio}
+                value={checkBox}
+              >
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="complete">견적완료</Radio>
@@ -566,6 +591,13 @@ export default function QuotationConditionsTable() {
           <div className={style.quotation_conditions_btns}>
             <div className={style.quotation_conditions_btns_right}>
               <div></div>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={reLoadData}
+              >
+                갱신
+              </Button>
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
@@ -658,6 +690,13 @@ export default function QuotationConditionsTable() {
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
+                onClick={reLoadData}
+              >
+                갱신
+              </Button>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
                 onClick={downloadFile}
               >
                 엑셀 다운로드
@@ -676,3 +715,4 @@ export default function QuotationConditionsTable() {
     );
   }
 }
+
