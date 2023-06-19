@@ -14,6 +14,7 @@ import TuiGrid from "tui-grid";
 import { loadProgressBar } from "axios-progress-bar";
 import { decodeToken } from "../../provider/auth";
 import { GetCookie } from "../../provider/common";
+import { useRouter } from "next/router";
 
 import style from "../../styles/Home.module.css";
 import Btn from "../common/btn";
@@ -187,24 +188,83 @@ export default function PurchaseAdminGrid(props) {
   const ref = useRef();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [total, setTotal] = useState(1);
+  const [total, setTotal] = useState(null);
   const [data, setData] = useState();
 
   const [released, setReleased] = useState("");
   const [inReleased, setInReleased] = useState("");
   const [cancelled, setCancelled] = useState("");
-
   const [text, setText] = useState("");
   const [value, setValue] = useState("");
+  const [checkBox, setCheckBox] = useState("all");
+  const router = useRouter();
 
   // 데이터 로드
-  const loadData = async (e) => {
-    try {
-      // 토큰 설정 -> 해당 유저 it_maker 값 필요
-      const token = await GetCookie("ondaPcToken");
-      const tokenInfo = await decodeToken(token);
-      const orderInfoId = tokenInfo.payload.it_maker;
+  const loadData = async () => {
+    // 토큰 설정 -> 해당 유저 it_maker 값 필요
+    const token = await GetCookie("ondaPcToken");
+    const tokenInfo = await decodeToken(token);
+    const orderInfoId = tokenInfo.payload.it_maker;
 
+    let URL =
+      process.env.ONDA_API_URL +
+      "/api/order/partner/" +
+      `${orderInfoId}?offset=${perPage}&page=${page}`;
+    const res = await axios.get(URL, {
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer` + token,
+      },
+    });
+
+    const word = window.location.search.split("&type=");
+    let e = word[1];
+
+    setData(res.data.data);
+    setPerPage(perPage);
+
+    // 검색어와 부품번호 및 제조사 선택 했을 때
+    if (text && value) {
+      let searchURL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}`;
+      const res = await axios.get(searchURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+
+      // 검색조건에 맞는 데이터가 있을 때
+      if (res.data.data.length > 0) {
+        setData(res.data.data);
+      }
+      // 검색조건에 맞는 데이터가 없을 때
+      if (res.data.data == 0) {
+        setData("undefined");
+      }
+
+      setTotal(res.data.data_length);
+    }
+
+    // 부품번호 및 제조서 미선택
+    // or 검색어 비어 있을 때.
+    if (
+      text === null ||
+      text === " " ||
+      text === "" ||
+      text === "undefined" ||
+      value === null ||
+      value === " " ||
+      value === "" ||
+      value === "undefined"
+    ) {
+      // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
+      if (text && value === "") {
+        alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
+        return;
+      }
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
@@ -215,139 +275,99 @@ export default function PurchaseAdminGrid(props) {
           Authorization: `Bearer` + token,
         },
       });
-
+      setTotal(res.data.data_length);
       setData(res.data.data);
+    }
 
-      setPerPage(perPage);
-
-      let countURL =
+    if (e == "all") {
+      let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
-        `${orderInfoId}/totalcount`;
-
-      const countRes = await axios.get(countURL, {
+        `${orderInfoId}?offset=${perPage}&page=${page}`;
+      const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
           Authorization: `Bearer` + token,
         },
       });
-      setTotal(countRes.data.data);
+      setTotal(res.data.data_length);
+      setData(res.data.data);
+    }
 
-      //견적 상황판 완료 및 미완료 금액 설정
-      const releaseMoneyURL =
-        process.env.ONDA_API_URL + "/api/order/partner/ReleaseSum";
-      let body = { it_maker: orderInfoId };
-
-      const releaseRes = await axios.post(releaseMoneyURL, body, {
+    // 견적완료 리스트
+    if (e == "complete") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=shipped`;
+      const res = await axios.get(URL, {
         headers: {
           "content-type": "application/json",
-          Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
+          Authorization: `Bearer` + token,
         },
       });
-
-      setReleased(releaseRes.data.data.completeSum);
-      setInReleased(releaseRes.data.data.onGoingSum);
-      setCancelled(releaseRes.data.data.cancecledSum);
-
-      if (e == "all") {
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
+      if (Math.ceil(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
       }
-
-      // 견적완료 리스트
-      if (e == "complete") {
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&type=shipped`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-
-        let countURL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}/totalcount?status=shipped`;
-
-        const countRes = await axios.get(countURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setTotal(countRes.data.data);
-      }
-
-      // 견적 미완료 전체 리스트
-      if (e == "incomplete") {
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&type=placed,confirmed`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-
-        let countURL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}/totalcount?status=placed,confirmed`;
-
-        const countRes = await axios.get(countURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setTotal(countRes.data.data);
-      }
-
-      if (e == "cancelled") {
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&type=cancelled`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-
-        let countURL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}/totalcount?status=cancelled`;
-
-        const countRes = await axios.get(countURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setTotal(countRes.data.data);
-      }
-    } catch (e) {
-      console.log(e);
+      setTotal(res.data.data_length);
+      setData(res.data.data);
     }
+
+    // 견적 미완료 전체 리스트
+    if (e == "incomplete") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=placed,confirmed`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      if (Math.ceil(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
+      }
+      setTotal(res.data.data_length);
+      setData(res.data.data);
+    }
+
+    if (e == "cancelled") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=cancelled`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      if (Math.ceil(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
+      }
+      setTotal(res.data.data_length);
+      setData(res.data.data);
+    }
+
+    //견적 상황판 완료 및 미완료 금액 설정
+    const releaseMoneyURL =
+      process.env.ONDA_API_URL + "/api/order/partner/ReleaseSum";
+    let body = { it_maker: orderInfoId };
+
+    const releaseRes = await axios.post(releaseMoneyURL, body, {
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
+      },
+    });
+
+    setReleased(releaseRes.data.data.completeSum);
+    setInReleased(releaseRes.data.data.onGoingSum);
+    setCancelled(releaseRes.data.data.cancecledSum);
   };
 
   // 컬럼 설정
@@ -363,8 +383,8 @@ export default function PurchaseAdminGrid(props) {
       filter: "select",
     },
     {
-      header: "견적번호",
-      name: "od_id",
+      header: "주문번호",
+      name: "od_id_o_od_id",
       className: "font12 text-center",
       width: 80,
       hidden: false,
@@ -436,7 +456,7 @@ export default function PurchaseAdminGrid(props) {
       filter: "select",
     },
     {
-      header: "제조일(D/C)",
+      header: "제조년(D/C)",
       name: "dc",
       className: "font12 text-center",
       hidden: false,
@@ -458,7 +478,7 @@ export default function PurchaseAdminGrid(props) {
     },
     {
       header: "등록일",
-      name: "reg_date",
+      name: "CREATE_DATE",
       className: "font12",
       hidden: false,
       width: 90,
@@ -470,6 +490,12 @@ export default function PurchaseAdminGrid(props) {
   // radio box 클릭 이벤트
   const handleRadio = async (e) => {
     loadData(e);
+    router.push(
+      `/order/purchase_admin?offset=${perPage}&Page=${page}&type=${e}`
+    );
+    setText("");
+    setValue("");
+    setCheckBox(e);
   };
 
   // select 박스 부풒번호 및 제조사 선택칸
@@ -484,71 +510,50 @@ export default function PurchaseAdminGrid(props) {
 
   // 조회 버튼 클릭 시 이벤트
   const _handleSearch = async () => {
-    // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("ondaPcToken");
-    const tokenInfo = await decodeToken(token);
-    const orderInfoId = tokenInfo.payload.it_maker;
+    loadData();
+    router.push(
+      `/order/purchase_admin?offset=${perPage}&&search=${value}&name=${text}`
+    );
+    setPage(1);
+    setCheckBox("all");
+  };
+
+  //갱신
+  const reLoadData = async (e) => {
     try {
-      // 검색어와 부품번호 및 제조사 선택 했을 때
-      if (text && value) {
-        let searchURL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}`;
-        const res = await axios.get(searchURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-
-        // 검색조건에 맞는 데이터가 있을 때
-        if (res.data.data.length > 0) {
-          setData(res.data.data);
-        }
-        // 검색조건에 맞는 데이터가 없을 때
-        if (res.data.data == 0) {
-          setData("undefined");
-        }
-      }
-
-      // 부품번호 및 제조서 미선택
-      // or 검색어 비어 있을 때.
-      if (
-        text === null ||
-        text === " " ||
-        text === "" ||
-        text === "undefined" ||
-        value === null ||
-        value === " " ||
-        value === "" ||
-        value === "undefined"
-      ) {
-        // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
-        if (text && value === "") {
-          alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
-          return;
-        }
-
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&type=all`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-      }
+      loadData(e);
     } catch (e) {
       console.log("err " + e);
     }
   };
 
   useEffect(() => {
-    loadData(data);
+    const loadDataFirst = async () => {
+      // 토큰 설정 -> 해당 유저 it_maker 값 필요
+      const token = await GetCookie("ondaPcToken");
+      const tokenInfo = await decodeToken(token);
+      const orderInfoId = tokenInfo.payload.it_maker;
+
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+
+      setTotal(res.data.data_length);
+      setData(res.data.data);
+      setPerPage(perPage);
+    };
+
+    if (total === null) {
+      loadDataFirst();
+    }
+    loadData();
   }, [page]);
 
   if (data != "undefined") {
@@ -595,7 +600,11 @@ export default function PurchaseAdminGrid(props) {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="all" onChange={handleRadio}>
+              <RadioGroup
+                defaultValue="all"
+                onChange={handleRadio}
+                value={checkBox}
+              >
                 <Stack direction="row">
                   <Radio value="all">전체</Radio>
                   <Radio value="complete">매출총합</Radio>
@@ -607,7 +616,18 @@ export default function PurchaseAdminGrid(props) {
           </div>
         </div>
         <div className="mb-5 estimate-detail__body">
-          <div className={style.order_btns}></div>
+          <div className={style.order_btns}>
+            <div className={style.order_btns_right}>
+              <div></div>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={reLoadData}
+              >
+                갱신
+              </Button>
+            </div>
+          </div>
           <div className={style.order_conditions_table}>
             <Grid
               ref={ref}
@@ -696,7 +716,18 @@ export default function PurchaseAdminGrid(props) {
           </div>
         </div>
         <div className="mb-5 estimate-detail__body">
-          <div className={style.order_btns}></div>
+          <div className={style.order_btns}>
+            <div className={style.order_btns_right}>
+              <div></div>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={reLoadData}
+              >
+                갱신
+              </Button>
+            </div>
+          </div>
           <Grid
             ref={ref}
             columns={columns}
