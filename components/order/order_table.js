@@ -15,6 +15,7 @@ import { loadProgressBar } from "axios-progress-bar";
 import { decodeToken } from "../../provider/auth";
 import { GetCookie } from "../../provider/common";
 
+import { useRouter } from "next/router";
 import style from "../../styles/Home.module.css";
 import Btn from "../common/btn";
 import Pagination from "react-js-pagination";
@@ -180,32 +181,6 @@ export class EstimateCustomCommonRenderer {
   }
 }
 
-async function getPartnerData(keyword) {
-  try {
-    let URL = process.env.ONDA_API_URL + "/api/partner/findName";
-    if (keyword) {
-      URL += `?keyword=${keyword}`;
-    }
-
-    //`?keyword=${offset}&page=${page}`;
-    const res = await axios.get(URL, {
-      headers: {
-        "content-type": "application/json",
-        // Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
-      },
-    });
-    if (res.data.status === 200) {
-      return res.data;
-    }
-    if (res.data.status === 204) {
-      return null;
-    }
-    return 0;
-  } catch (e) {
-    return 0;
-  }
-}
-
 // 견적서 tui grid
 export default function OrderAdminGrid(props) {
   const urlParams = new URLSearchParams(window.location.search);
@@ -213,18 +188,19 @@ export default function OrderAdminGrid(props) {
   const ref = useRef();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [total, setTotal] = useState();
+  const [total, setTotal] = useState(null);
   const [data, setData] = useState();
 
   const [confirmed, setConfirmed] = useState("");
   const [ongoing, setOngoing] = useState("");
-  const [cancelled, setCancelled] = useState("");
 
   const [text, setText] = useState("");
   const [value, setValue] = useState("");
+  const [checkBox, setCheckBox] = useState("placed,confirmed");
+  const router = useRouter();
 
   // 데이터 로드
-  const loadData = async (e) => {
+  const loadData = async () => {
     // 토큰 설정 -> 해당 유저 it_maker 값 필요
     const token = await GetCookie("ondaPcToken");
     const tokenInfo = await decodeToken(token);
@@ -233,7 +209,7 @@ export default function OrderAdminGrid(props) {
     let URL =
       process.env.ONDA_API_URL +
       "/api/order/partner/" +
-      `${orderInfoId}?offset=${perPage}&page=${page}&type=placed,confirmed`;
+      `${orderInfoId}?offset=${perPage}&page=${page}`;
 
     const res = await axios.get(URL, {
       headers: {
@@ -241,35 +217,55 @@ export default function OrderAdminGrid(props) {
         Authorization: `Bearer` + token,
       },
     });
+    const word = window.location.search.split("&type=");
+    let e = word[1];
+
     setData(res.data.data);
-
-    let countURL =
-      process.env.ONDA_API_URL +
-      "/api/order/partner/" +
-      `${orderInfoId}/totalcount?status=placed,confirmed`;
-
-    const countRes = await axios.get(countURL, {
-      headers: {
-        "content-type": "application/json",
-        Authorization: `Bearer` + token,
-      },
-    });
-    setTotal(countRes.data.data);
     setPerPage(perPage);
 
-    //견적 상황판 완료 및 미완료 금액 설정
-    const orderMoneyURL = process.env.ONDA_API_URL + "/api/order/partner/sum";
-    let body = { it_maker: orderInfoId };
-    const orderRes = await axios.post(orderMoneyURL, body, {
-      headers: {
-        "content-type": "application/json",
-        Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
-      },
-    });
-    setConfirmed(orderRes.data.data.completeSum);
-    setOngoing(orderRes.data.data.onGoingSum);
+    // 검색어와 부품번호 및 제조사 선택 했을 때
+    if (text && value) {
+      let searchURL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}&type=placed,confirmed`;
+      const res = await axios.get(searchURL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      // 검색조건에 맞는 데이터가 있을 때
+      if (res.data.data.length > 0) {
+        setData(res.data.data);
+      }
+      // 검색조건에 맞는 데이터가 없을 때
+      if (res.data.data == 0) {
+        setData("undefined");
+      }
 
-    if (e == "all") {
+      setTotal(res.data.data_length);
+    }
+
+    // 부품번호 및 제조서 미선택
+    // or 검색어 비어 있을 때.
+    if (
+      text === null ||
+      text === " " ||
+      text === "" ||
+      text === "undefined" ||
+      value === null ||
+      value === " " ||
+      value === "" ||
+      value === "undefined"
+    ) {
+      // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
+      if (text && value === "") {
+        alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
+        setText("");
+        return;
+      }
+
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
@@ -283,8 +279,23 @@ export default function OrderAdminGrid(props) {
       setData(res.data.data);
     }
 
+    if (e == "placed,confirmed") {
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=placed,confirmed`;
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setTotal(res.data.data_length);
+      setData(res.data.data);
+    }
+
     // 견적완료 리스트
-    if (e == "ongoing") {
+    if (e == "placed") {
       let URL =
         process.env.ONDA_API_URL +
         "/api/order/partner/" +
@@ -295,20 +306,12 @@ export default function OrderAdminGrid(props) {
           Authorization: `Bearer` + token,
         },
       });
+      if (Math.ceil(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
+      }
+      setTotal(res.data.data_length);
       setData(res.data.data);
-
-      let countURL =
-        process.env.ONDA_API_URL +
-        "/api/order/partner/" +
-        `${orderInfoId}/totalcount?status=placed`;
-
-      const countRes = await axios.get(countURL, {
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer` + token,
-        },
-      });
-      setTotal(countRes.data.data);
     }
 
     // 견적 미완료 전체 리스트
@@ -323,21 +326,25 @@ export default function OrderAdminGrid(props) {
           Authorization: `Bearer` + token,
         },
       });
+      if (Math.ceil(res.data.data_length / perPage) < page) {
+        setPage(1);
+        return;
+      }
+      setTotal(res.data.data_length);
       setData(res.data.data);
-
-      let countURL =
-        process.env.ONDA_API_URL +
-        "/api/order/partner/" +
-        `${orderInfoId}/totalcount?status=confirmed`;
-
-      const countRes = await axios.get(countURL, {
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer` + token,
-        },
-      });
-      setTotal(countRes.data.data);
     }
+
+    //견적 상황판 완료 및 미완료 금액 설정
+    const orderMoneyURL = process.env.ONDA_API_URL + "/api/order/partner/sum";
+    let body = { it_maker: orderInfoId };
+    const orderRes = await axios.post(orderMoneyURL, body, {
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${await GetCookie("ondaPcToken")}`,
+      },
+    });
+    setConfirmed(orderRes.data.data.completeSum);
+    setOngoing(orderRes.data.data.onGoingSum);
   };
 
   // 컬럼 설정
@@ -353,8 +360,8 @@ export default function OrderAdminGrid(props) {
       filter: "select",
     },
     {
-      header: "견적번호",
-      name: "od_id",
+      header: "주문번호",
+      name: "od_id_o_od_id",
       className: "font12 text-center",
       width: 80,
       hidden: false,
@@ -427,7 +434,7 @@ export default function OrderAdminGrid(props) {
       filter: "select",
     },
     {
-      header: "제조일(D/C)",
+      header: "제조년(D/C)",
       name: "dc",
       className: "font12 text-center",
       hidden: false,
@@ -449,7 +456,7 @@ export default function OrderAdminGrid(props) {
     },
     {
       header: "등록일",
-      name: "reg_date",
+      name: "CREATE_DATE",
       className: "font12",
       hidden: false,
       width: 90,
@@ -482,13 +489,13 @@ export default function OrderAdminGrid(props) {
         },
       });
 
-      if (res.status === 201) {
+      if (res.data.status === 201) {
         alert("주문확정이 완료되었습니다.");
         setTimeout(function () {
           location.reload();
         }, 1000);
       } else {
-        alert("다시 시도해주세요");
+        alert(res.data.msg);
       }
     } catch (e) {
       console.log("err " + e);
@@ -497,9 +504,22 @@ export default function OrderAdminGrid(props) {
 
   const handlePageChange = (page) => setPage(page);
 
+  //갱신
+  const reLoadData = async (e) => {
+    try {
+      loadData(e);
+    } catch (e) {
+      console.log("err " + e);
+    }
+  };
+
   // radio box 클릭 이벤트
   const handleRadio = async (e) => {
     loadData(e);
+    router.push(`/order/order_admin?offset=${perPage}&Page=${page}&type=${e}`);
+    setText("");
+    setValue("");
+    setCheckBox(e);
   };
 
   // select 박스 부풒번호 및 제조사 선택칸
@@ -514,71 +534,43 @@ export default function OrderAdminGrid(props) {
 
   // 조회 버튼 클릭 시 이벤트
   const _handleSearch = async () => {
-    // 토큰 설정 -> 해당 유저 it_maker 값 필요
-    const token = await GetCookie("ondaPcToken");
-    const tokenInfo = await decodeToken(token);
+    loadData();
+    router.push(
+      `/order/order_admin?offset=${perPage}&Page=${page}&search=${value}&name=${text}`
+    );
 
-    const orderInfoId = tokenInfo.payload.it_maker;
-    try {
-      // 검색어와 부품번호 및 제조사 선택 했을 때
-      if (text && value) {
-        let searchURL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&search=${value}&name=${text}`;
-        const res = await axios.get(searchURL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        // 검색조건에 맞는 데이터가 있을 때
-        if (res.data.data.length > 0) {
-          setData(res.data.data);
-        }
-        // 검색조건에 맞는 데이터가 없을 때
-        if (res.data.data == 0) {
-          setData("undefined");
-        }
-      }
-
-      // 부품번호 및 제조서 미선택
-      // or 검색어 비어 있을 때.
-      if (
-        text === null ||
-        text === " " ||
-        text === "" ||
-        text === "undefined" ||
-        value === null ||
-        value === " " ||
-        value === "" ||
-        value === "undefined"
-      ) {
-        // 부품번호 및 제조사 미선택 & 검색어는 입력했을 때.
-        if (text && value === "") {
-          alert("찾고자하는 부품번호 및 제조사 선택은 필수입니다.");
-          return;
-        }
-
-        let URL =
-          process.env.ONDA_API_URL +
-          "/api/order/partner/" +
-          `${orderInfoId}?offset=${perPage}&page=${page}&type=all`;
-        const res = await axios.get(URL, {
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer` + token,
-          },
-        });
-        setData(res.data.data);
-      }
-    } catch (e) {
-      console.log("err " + e);
-    }
+    setPage(1);
+    setCheckBox("placed,confirmed");
   };
 
   useEffect(() => {
-    loadData(data);
+    const loadDataFirst = async (e) => {
+      // 토큰 설정 -> 해당 유저 it_maker 값 필요
+      const token = await GetCookie("ondaPcToken");
+      const tokenInfo = await decodeToken(token);
+      const orderInfoId = tokenInfo.payload.it_maker;
+
+      let URL =
+        process.env.ONDA_API_URL +
+        "/api/order/partner/" +
+        `${orderInfoId}?offset=${perPage}&page=${page}&type=placed,confirmed`;
+
+      const res = await axios.get(URL, {
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer` + token,
+        },
+      });
+      setTotal(res.data.data_length);
+      setData(res.data.data);
+      setPerPage(perPage);
+    };
+
+    if (total === null) {
+      loadDataFirst();
+    }
+
+    loadData();
   }, [page]);
 
   if (data !== "undefined") {
@@ -621,11 +613,15 @@ export default function OrderAdminGrid(props) {
               className={style.search_radio_box}
               style={{ padding: "27px 20px", height: "fit-content" }}
             >
-              <RadioGroup defaultValue="all" onChange={handleRadio}>
+              <RadioGroup
+                defaultValue="all"
+                onChange={handleRadio}
+                value={checkBox}
+              >
                 <Stack direction="row">
-                  <Radio value="all">전체</Radio>
+                  <Radio value="placed,confirmed">전체</Radio>
                   <Radio value="confirmed">주문확정</Radio>
-                  <Radio value="ongoing">주문진행</Radio>
+                  <Radio value="placed">주문진행</Radio>
                 </Stack>
               </RadioGroup>
             </div>
@@ -635,6 +631,13 @@ export default function OrderAdminGrid(props) {
           <div className={style.order_btns}>
             <div className={style.order_btns_right}>
               <div></div>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
+                onClick={reLoadData}
+              >
+                갱신
+              </Button>
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
@@ -733,6 +736,13 @@ export default function OrderAdminGrid(props) {
               <Button
                 type="button"
                 className={style.estimate_list_detail_btn}
+                onClick={reLoadData}
+              >
+                갱신
+              </Button>
+              <Button
+                type="button"
+                className={style.estimate_list_detail_btn}
                 onClick={confirmOrder}
               >
                 주문확정
@@ -751,4 +761,3 @@ export default function OrderAdminGrid(props) {
     );
   }
 }
-
