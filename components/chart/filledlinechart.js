@@ -21,102 +21,100 @@ function FilledLineChart() {
       setData(Object.values(res.data.data.monthly_total_array[0]));
       setAnnualData(Object.values(res.data.data.yearly_total_array[0]));
     };
+    loadData();
+  }, []);
 
-    if (data === null) {
-      loadData();
-    }
-
-    if (annualData === null) {
-      loadData();
-    }
-
-    var ctx = document.getElementById("monthLineChart").getContext("2d");
-    var ctx2 = document.getElementById("annualLineChart").getContext("2d");
-
-    var myChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: [
-          "1월",
-          "2월",
-          "3월",
-          "4월",
-          "5월",
-          "6월",
-          "7월",
-          "8월",
-          "9월",
-          "10월",
-          "11월",
-          "12월",
-        ],
-        datasets: [
-          {
-            data: data,
-            label: "Hit",
-            borderColor: "#3e95cd",
-            backgroundColor: "#7bb6dd",
-            fill: false,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-
-        scales: {
-          xAxes: [
-            {
-              display: true,
-            },
+  useEffect(() => {
+    if (data != null) {
+      var ctx = document.getElementById("monthLineChart").getContext("2d");
+      var myChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: [
+            "1월",
+            "2월",
+            "3월",
+            "4월",
+            "5월",
+            "6월",
+            "7월",
+            "8월",
+            "9월",
+            "10월",
+            "11월",
+            "12월",
           ],
-          yAxes: [
+          datasets: [
             {
-              display: true,
-              ticks: {
-                beginAtZero: true,
-              },
+              data: data,
+              label: "Hit",
+              borderColor: "#3e95cd",
+              backgroundColor: "#7bb6dd",
+              fill: false,
             },
           ],
         },
-      },
-    });
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
 
-    var myChart2 = new Chart(ctx2, {
-      type: "line",
-      data: {
-        labels: ["2020", "2021", "2022", "2023", "2024"],
-        datasets: [
-          {
-            data: annualData,
-            label: "Hit",
-            borderColor: "#3cba9f",
-            backgroundColor: "#71d1bd",
-            fill: false,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-
-        scales: {
-          xAxes: [
-            {
-              display: true,
-            },
-          ],
-          yAxes: [
-            {
-              display: true,
-              ticks: {
-                beginAtZero: true,
+          scales: {
+            xAxes: [
+              {
+                display: true,
               },
+            ],
+            yAxes: [
+              {
+                display: true,
+                ticks: {
+                  beginAtZero: true,
+                },
+              },
+            ],
+          },
+        },
+      });
+    }
+
+    if (annualData != null) {
+      var ctx2 = document.getElementById("annualLineChart").getContext("2d");
+      var myChart2 = new Chart(ctx2, {
+        type: "line",
+        data: {
+          labels: ["2023", "2024", "2025"],
+          datasets: [
+            {
+              data: annualData,
+              label: "Hit",
+              borderColor: "#3cba9f",
+              backgroundColor: "#71d1bd",
+              fill: false,
             },
           ],
         },
-      },
-    });
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+
+          scales: {
+            xAxes: [
+              {
+                display: true,
+              },
+            ],
+            yAxes: [
+              {
+                display: true,
+                ticks: {
+                  beginAtZero: true,
+                },
+              },
+            ],
+          },
+        },
+      });
+    }
   }, [data, annualData]);
 
   return (
@@ -132,3 +130,4 @@ function FilledLineChart() {
 }
 
 export default FilledLineChart;
+
