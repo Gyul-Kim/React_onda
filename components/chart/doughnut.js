@@ -23,53 +23,54 @@ function DoughnutChart() {
       setReplyData(res.data.data.totalCountReply);
       setOrderData(res.data.data.totalCountOrder);
     };
+    loadData();
+  }, []);
 
-    if (quotationData === null || replyData === null || orderData === null) {
-      loadData();
-    }
-
-    var ctx = document.getElementById("myChart").getContext("2d");
-    var myChart = new Chart(ctx, {
-      type: "doughnut",
-      data: {
-        labels: ["견적요청", "견적회신", "주문건수"],
-        datasets: [
-          {
-            data: [quotationData, replyData, orderData],
-            borderColor: [
-              "rgb(75, 192, 192)",
-              "rgb(255, 205, 86)",
-              "rgb(255, 99, 132)",
-            ],
-            backgroundColor: [
-              "rgb(75, 192, 192 )",
-              "rgb(255, 205, 86)",
-              "rgb(255, 99, 132)",
-            ],
-            borderWidth: 2,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          xAxes: [
+  useEffect(() => {
+    if (quotationData != null || replyData != null || orderData != null) {
+      var ctx = document.getElementById("myChart").getContext("2d");
+      var myChart = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["견적요청", "견적회신", "주문건수"],
+          datasets: [
             {
-              display: true,
-            },
-          ],
-          yAxes: [
-            {
-              display: true,
-              ticks: {
-                beginAtZero: true,
-              },
+              data: [quotationData, replyData, orderData],
+              borderColor: [
+                "rgb(75, 192, 192)",
+                "rgb(255, 205, 86)",
+                "rgb(255, 99, 132)",
+              ],
+              backgroundColor: [
+                "rgb(75, 192, 192 )",
+                "rgb(255, 205, 86)",
+                "rgb(255, 99, 132)",
+              ],
+              borderWidth: 2,
             },
           ],
         },
-      },
-    });
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            xAxes: [
+              {
+                display: true,
+              },
+            ],
+            yAxes: [
+              {
+                display: true,
+                ticks: {
+                  beginAtZero: true,
+                },
+              },
+            ],
+          },
+        },
+      });
+    }
   }, [quotationData, replyData, orderData]);
 
   return (
